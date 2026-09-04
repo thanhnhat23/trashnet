@@ -39,7 +39,7 @@ def predict(image_path):
 
     label = idx_to_class[predicted_idx.item()]
     print(f"File: {Path(image_path).name}")
-    print(f"Kết quả: {label.upper()} (Độ tin cậy: {confidence.item() * 100:.2f}%)")
+    print(f"Result: {label.upper()} (Confidence: {confidence.item() * 100:.2f}%)")
 
 if __name__ == '__main__':
     test_img = r"D:\Install\533904e3-53eb-44c4-8480-239325a4ab41.jpg"

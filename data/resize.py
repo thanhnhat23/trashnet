@@ -11,7 +11,7 @@ def fileWalk(directory, destPath):
     destPath = Path(destPath)
 
     if not directory.exists():
-        print(f"[!] Không tìm thấy thư mục nguồn: {directory}")
+        print(f"[!] Source directory not found: {directory}")
         return
 
     destPath.mkdir(parents=True, exist_ok=True)
@@ -38,9 +38,9 @@ def fileWalk(directory, destPath):
                 picResized.save(target_file)
             count += 1
         except Exception as e:
-            print(f"[!] Lỗi khi xử lý {file_path.name}: {e}")
+            print(f"[!] Error processing {file_path.name}: {e}")
 
-    print(f"[+] Đã resize {count} ảnh từ {directory.name} -> {destPath}")
+    print(f"[+] Resized {count} images from {directory.name} -> {destPath}")
 
 def main():
     base_dir = Path(__file__).resolve().parent

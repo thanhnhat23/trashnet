@@ -55,32 +55,77 @@ luarocks install cunn
 ```
 
 ### Python setup
-Python is currently used for some image preprocessing tasks. The Python dependencies are:
-- [NumPy](http://numpy.org)
-- [SciPy](http://scipy.org)
+Python is used for image preprocessing, model training, and inference. The Python dependencies are:
+- [PyTorch](https://pytorch.org)
+- [TorchVision](https://pytorch.org/vision/stable/index.html)
+- [Pillow](https://python-pillow.org)
 
 You can install these packages by running the following:
 
 ```bash
 # Install using pip
-pip install numpy scipy
+python -m pip install torch torchvision pillow
 ```
 
 ## Usage
 
 ### Step 1: Prepare the data
-Unzip `data/dataset-resized.zip`.
+The repository already contains the processed images in `data/dataset-resized`. If this folder is present, this step can be skipped.
 
-If adding more data, then the new files must be enumerated properly and put into the appropriate folder in `data/dataset-original` and then preprocessed. Preprocessing the data involves deleting the `data/dataset-resized` folder and then calling `python resize.py` from `trashnet/data`. This will take around half an hour.
+To preprocess the original images, place them in the following folders:
+
+```text
+data/dataset-original/
+	cardboard/
+	glass/
+	metal/
+	paper/
+	plastic/
+	trash/
+```
+
+Then run the following commands from the repository root:
+
+```bash
+python -m pip install torch torchvision pillow
+python data/resize.py
+```
+
+If the dataset is changed, remove `data/dataset-resized` before running the resize script again. The script resizes the images to `512 x 384`, as configured in `data/constants.py`.
 
 ### Step 2: Train the model
-TODO
+Run training from the repository root:
+
+```bash
+python data/train.py
+```
+
+The script uses a fixed 80/20 train-validation split and automatically uses CUDA when it is available. After training, the best model is saved to `data/trashnet_resnet18_best.pth`, and the class mapping is saved to `data/classes.json`.
 
 ### Step 3: Test the model
-TODO
+Open `data/predict.py` and set `test_img` to the path of the image to classify:
+
+```python
+test_img = r"C:\path\to\image.jpg"
+```
+
+Then run:
+
+```bash
+python data/predict.py
+```
+
+The script loads `data/trashnet_resnet18_best.pth` and prints the predicted class and confidence score. Train the model first so that the checkpoint and `classes.json` are available.
 
 ### Step 4: View the results
-TODO
+Training progress is printed in the terminal after every epoch. A prediction is also printed in the terminal in the following format:
+
+```text
+File: image.jpg
+Result: PLASTIC (Confidence: 92.35%)
+```
+
+The trained model and label mapping can be found in the `data` directory. The current Python training script does not export loss or accuracy plots; `plot.lua` is for the legacy Torch checkpoints and cannot load the PyTorch `.pth` file.
 
 ## Contributing
 1. Fork it!
@@ -94,7 +139,6 @@ TODO
 - [@e-lab](http://github.com/e-lab) for their [weight-init Torch module](http://github.com/e-lab/torch-toolbox/blob/master/Weight-init/weight-init.lua)
 
 ## TODOs
-- finish the Usage portion of the README
 - add specific results (and parameters used) that were achieved after the CS 229 project deadline
 - add saving of confusion matrix data and creation of graphic to `plot.lua`
 - rewrite the data preprocessing to only reprocess new images if the dimensions have not changed

@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, random_split, Subset
 
 def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"Đang sử dụng thiết bị: {device}")
+    print(f"Using device: {device}")
 
     # Tách transform riêng cho Train và Val
     train_transforms = transforms.Compose([
@@ -36,7 +36,7 @@ def main():
     # Lưu lại mapping nhãn để dùng khi inference
     with open(base_dir / 'classes.json', 'w') as f:
         json.dump(full_dataset_train.class_to_idx, f, indent=4)
-    print(f"Danh sách nhãn: {full_dataset_train.class_to_idx}")
+    print(f"Class mapping: {full_dataset_train.class_to_idx}")
 
     # Chia index cố định
     total_size = len(full_dataset_train)
@@ -102,7 +102,7 @@ def main():
             best_val_acc = val_acc
             torch.save(model.state_dict(), base_dir / 'trashnet_resnet18_best.pth')
 
-    print(f"Hoàn thành. Trọng số tốt nhất đạt Val Acc: {best_val_acc:.4f}")
+    print(f"Training complete. Best checkpoint Val Acc: {best_val_acc:.4f}")
 
 if __name__ == '__main__':
     main()
