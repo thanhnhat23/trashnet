@@ -1,66 +1,58 @@
 import os
+from pathlib import Path
+from PIL import Image
 import constants
-import numpy as np
-from scipy import misc, ndimage
 
 def resize(image, dim1, dim2):
-	return misc.imresize(image, (dim1, dim2))
+    return image.resize((dim2, dim1), Image.Resampling.LANCZOS)
 
 def fileWalk(directory, destPath):
-	try: 
-		os.makedirs(destPath)
-	except OSError:
-		if not os.path.isdir(destPath):
-			raise
+    directory = Path(directory)
+    destPath = Path(destPath)
 
-	for subdir, dirs, files in os.walk(directory):
-		for file in files:
-			if len(file) <= 4 or file[-4:] != '.jpg':
-				continue
+    if not directory.exists():
+        print(f"[!] Không tìm thấy thư mục nguồn: {directory}")
+        return
 
-			pic = misc.imread(os.path.join(subdir, file))
-			dim1 = len(pic)
-			dim2 = len(pic[0])
-			if dim1 > dim2:
-				pic = np.rot90(pic)
+    destPath.mkdir(parents=True, exist_ok=True)
 
-			picResized = resize(pic,constants.DIM1, constants.DIM2)
-			misc.imsave(os.path.join(destPath, file), picResized)
-		
+    count = 0
+    valid_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.webp')
+
+    for entry in os.scandir(directory):
+        if not entry.is_file():
+            continue
+
+        file_path = Path(entry.path)
+        if file_path.suffix.lower() not in valid_extensions:
+            continue
+
+        target_file = destPath / file_path.name
+
+        try:
+            with Image.open(file_path) as pic:
+                if pic.height > pic.width:
+                    pic = pic.rotate(90, expand=True)
+
+                picResized = resize(pic, constants.DIM1, constants.DIM2)
+                picResized.save(target_file)
+            count += 1
+        except Exception as e:
+            print(f"[!] Lỗi khi xử lý {file_path.name}: {e}")
+
+    print(f"[+] Đã resize {count} ảnh từ {directory.name} -> {destPath}")
 
 def main():
-	prepath = os.path.join(os.getcwd(), 'dataset-original')
-	glassDir = os.path.join(prepath, 'glass')
-	paperDir = os.path.join(prepath, 'paper')
-	cardboardDir = os.path.join(prepath, 'cardboard')
-	plasticDir = os.path.join(prepath, 'plastic')
-	metalDir = os.path.join(prepath, 'metal')
-	trashDir = os.path.join(prepath, 'trash')
+    base_dir = Path(__file__).resolve().parent
+    prepath = base_dir / 'dataset-original'
+    destPath = base_dir / 'dataset-resized'
 
-	destPath = os.path.join(os.getcwd(), 'dataset-resized')
-	try: 
-		os.makedirs(destPath)
-	except OSError:
-		if not os.path.isdir(destPath):
-			raise
+    categories = ['glass', 'paper', 'cardboard', 'plastic', 'metal', 'trash']
 
-	#GLASS
-	fileWalk(glassDir, os.path.join(destPath, 'glass'))
-
-	#PAPER
-	fileWalk(paperDir, os.path.join(destPath, 'paper'))
-
-	#CARDBOARD
-	fileWalk(cardboardDir, os.path.join(destPath, 'cardboard'))
-
-	#PLASTIC
-	fileWalk(plasticDir, os.path.join(destPath, 'plastic'))
-
-	#METAL
-	fileWalk(metalDir, os.path.join(destPath, 'metal'))
-
-	#TRASH
-	fileWalk(trashDir, os.path.join(destPath, 'trash'))  
+    for category in categories:
+        src = prepath / category
+        dst = destPath / category
+        fileWalk(src, dst)
 
 if __name__ == '__main__':
     main()
