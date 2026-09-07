@@ -13,6 +13,8 @@ CARDBOARD = 3
 PLASTIC = 4
 METAL = 5
 TRASH = 6
+BATTERY = 7
+BIOLOGICAL = 8
 
 local DataLoader = torch.class("DataLoader")
 
@@ -229,6 +231,10 @@ function loadList(fileListPath, opt)
         filePath = paths.concat(opt.dataFolder, "metal", filePath)
       elseif fileLabel == TRASH then
         filePath = paths.concat(opt.dataFolder, "trash", filePath)
+      elseif fileLabel == BATTERY then
+        filePath = paths.concat(opt.dataFolder, "battery", filePath)
+      elseif fileLabel == BIOLOGICAL then
+        filePath = paths.concat(opt.dataFolder, "biological", filePath)
       end
 
       table.insert(filePaths, filePath)

@@ -9,12 +9,12 @@ def predict(image_path):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     base_dir = Path(__file__).resolve().parent
 
-    # Đọc ánh xạ nhãn đã lưu lúc train
+    # Load label mapping saved during training
     with open(base_dir / 'classes.json', 'r') as f:
         class_to_idx = json.load(f)
     idx_to_class = {v: k for k, v in class_to_idx.items()}
 
-    # Tiền xử lý ảnh test giống hệt tập validation
+    # Preprocess test image identically to the validation set
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
@@ -24,14 +24,14 @@ def predict(image_path):
     image = Image.open(image_path).convert('RGB')
     input_tensor = transform(image).unsqueeze(0).to(device)
 
-    # nạp trọng số tốt nhất
+    # Load the best model weights
     model = models.resnet18()
     model.fc = nn.Linear(model.fc.in_features, len(idx_to_class))
     model.load_state_dict(torch.load(base_dir / 'trashnet_resnet18_best.pth', map_location=device))
     model = model.to(device)
     model.eval()
 
-    # 4. Dự đoán
+    # Predict class label and confidence
     with torch.no_grad():
         outputs = model(input_tensor)
         probabilities = torch.softmax(outputs, dim=1)[0]
@@ -42,5 +42,5 @@ def predict(image_path):
     print(f"Result: {label.upper()} (Confidence: {confidence.item() * 100:.2f}%)")
 
 if __name__ == '__main__':
-    test_img = r"D:\Install\533904e3-53eb-44c4-8480-239325a4ab41.jpg"
+    test_img = r"C:\Users\admin\Pictures\test-3.jpg"
     predict(test_img)

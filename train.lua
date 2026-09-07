@@ -15,7 +15,7 @@ local cmd = torch.CmdLine()
 cmd:option("-trainList", "data/one-indexed-files-notrash_train.txt") -- necessary
 cmd:option("-valList", "data/one-indexed-files-notrash_val.txt") -- necessary
 cmd:option("-testList", "data/one-indexed-files-notrash_test.txt") -- necessary
-cmd:option("-numClasses", 5) -- necessary
+cmd:option("-numClasses", 8) -- necessary
 cmd:option("-inputHeight", "384")
 cmd:option("-inputWidth", "384")
 cmd:option("-scaledHeight", "256") -- uses original height if unprovided

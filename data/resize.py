@@ -30,24 +30,32 @@ def fileWalk(directory, destPath):
         target_file = destPath / file_path.name
 
         try:
+            # Read and resize the image, then save it to the destination path
             with Image.open(file_path) as pic:
+                if pic.mode != "RGB":
+                    pic = pic.convert("RGB")
+
                 if pic.height > pic.width:
                     pic = pic.rotate(90, expand=True)
 
                 picResized = resize(pic, constants.DIM1, constants.DIM2)
-                picResized.save(target_file)
+                picResized.save(target_file, format="JPEG", quality=95)
+
+            # Remove the original file after successful processing
+            file_path.unlink()
             count += 1
+
         except Exception as e:
             print(f"[!] Error processing {file_path.name}: {e}")
 
-    print(f"[+] Resized {count} images from {directory.name} -> {destPath}")
+    print(f"[+] Resized and removed {count} images from {directory.name} -> {destPath}")
 
 def main():
     base_dir = Path(__file__).resolve().parent
     prepath = base_dir / 'dataset-original'
     destPath = base_dir / 'dataset-resized'
 
-    categories = ['glass', 'paper', 'cardboard', 'plastic', 'metal', 'trash']
+    categories = ['glass', 'paper', 'cardboard', 'plastic', 'metal', 'trash', 'battery', 'biological']
 
     for category in categories:
         src = prepath / category
