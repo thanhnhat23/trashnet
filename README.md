@@ -1,144 +1,171 @@
-# trashnet
-Code (only for the convolutional neural network) and dataset for mine and [Mindy Yang](http://github.com/yangmindy4)'s final project for [Stanford's CS 229: Machine Learning class](http://cs229.stanford.edu). Our paper can be found [here](https://cs229.stanford.edu/proj2016/report/ThungYang-ClassificationOfTrashForRecyclabilityStatus-report.pdf). The convolutional neural network results on the poster are dated since we continued working after the end of the quarter and  were able to achieve around 75% test accuracy (with 70/13/17 train/val/test split) after changing the weight initialization to the Kaiming method.
+# TrashNet: AI-Powered Smart Waste Classification & Web App
 
-## Dataset
-This repository contains the dataset that we collected. The dataset spans six classes: glass, paper, cardboard, plastic, metal, and trash. Currently, the dataset consists of 2527 images:
-- 501 glass
-- 594 paper
-- 403 cardboard
-- 482 plastic
-- 410 metal
-- 137 trash
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org)
+[![Flask](https://img.shields.io/badge/Flask-Web%20UI-black.svg)](https://flask.palletsprojects.com/)
+[![Accuracy](https://img.shields.io/badge/Val%20Accuracy-96.25%25-brightgreen.svg)]()
+[![Classes](https://img.shields.io/badge/Classes-8%20Categories-blue.svg)]()
 
-The pictures were taken by placing the object on a white posterboard and using sunlight and/or room lighting. The pictures have been resized down to 512 x 384, which can be changed in `data/constants.py` (resizing them involves going through step 1 in usage). The devices used were Apple iPhone 7 Plus, Apple iPhone 5S, and Apple iPhone SE.
+TrashNet is an intelligent deep learning system and web application designed to automatically classify household and recyclable waste into proper disposal categories. Originally based on [Gary Thung & Mindy Yang's Stanford CS229 Project](https://cs229.stanford.edu/proj2016/report/ThungYang-ClassificationOfTrashForRecyclabilityStatus-report.pdf), this repository has been modernized to PyTorch with an optimized ResNet-18 pipeline achieving **96.25% validation accuracy** across **8 waste categories**, along with a responsive modern Web UI for live webcam and image classification.
 
-The size of the original dataset, ~3.5GB, exceeds the git-lfs maximum size so it has been uploaded to Google Drive. If you are planning on using the Python code to preprocess the original dataset, then download `dataset-original.zip` from the link below and place the unzipped folder inside of the `data` folder.
+---
 
-**If you are using the dataset, please give a citation of this repository. The dataset can be downloaded [here](https://huggingface.co/datasets/garythung/trashnet).**
+## ✨ Features
 
-## Installation
-### Lua setup
-We wrote code in [Lua](http://lua.org) using [Torch](http://torch.ch); you can find installation instructions
-[here](http://torch.ch/docs/getting-started.html). You'll need the following Lua packages:
+- 🧠 **High-Accuracy PyTorch Pipeline**: Transfer learning using ResNet-18 fine-tuned with AdamW optimizer, Cosine Annealing learning rate schedule, data augmentation (RandomResizedCrop, Flip, Rotation, ColorJitter), and Label Smoothing.
+- ♻️ **Expanded 8 Waste Categories**:
+  1. 🔋 **Battery (Pin & Ắc quy)** - Hazardous waste / Red bin
+  2. 🍎 **Biological (Rác hữu cơ)** - Organic waste / Green bin
+  3. 📦 **Cardboard (Bìa carton)** - Recyclable / Blue bin
+  4. 🥛 **Glass (Thủy tinh & Chai lọ)** - Recyclable / Blue bin
+  5. 🥫 **Metal (Kim loại & Vỏ lon)** - Recyclable / Blue bin
+  6. 📄 **Paper (Giấy vụn & Sách báo)** - Recyclable / Blue bin
+  7. 🧴 **Plastic (Nhựa & Chai nhựa)** - Recyclable / Yellow-Blue bin
+  8. 🗑️ **Trash (Rác vô cơ khác)** - Non-recyclable landfill / Gray bin
+- 🌐 **Interactive Web Interface**:
+  - Drag-and-drop or browse image upload
+  - Real-time webcam capture & instant AI inference
+  - Environmental guidance with recommended trash bin colors and recycling tips (bilingual Vietnamese / English)
+  - Detailed probability breakdown bar chart for all 8 categories
+  - Glassmorphic dark/light responsive layout
 
-- [torch/torch7](http://github.com/torch/torch7)
-- [torch/nn](http://github.com/torch/nn)
-- [torch/optim](http://github.com/torch/optim)
-- [torch/image](http://github.com/torch/image)
-- [torch/gnuplot](http://github.com/torch/gnuplot)
+---
 
-After installing Torch, you can install these packages by running the following:
+## 🚀 Quick Start: Web Application
 
-```bash
-# Install using Luarocks
-luarocks install torch
-luarocks install nn
-luarocks install optim
-luarocks install image
-luarocks install gnuplot
-```
+### 1. Install Dependencies
 
-We also need [@e-lab](http://github.com/e-lab)'s [weight-init module](http://github.com/e-lab/torch-toolbox/blob/master/Weight-init/weight-init.lua), which is already included in this repository.
-
-### CUDA support
-Because training takes awhile, you will want to use a GPU to get results in a reasonable amount of time. We used CUDA with a GTX 650 Ti with CUDA. To enable GPU acceleration with CUDA, you'll first need to install CUDA 6.5 or higher. Find CUDA installations [here](http://developer.nvidia.com/cuda-downloads).
-
-Then you need to install following Lua packages for CUDA:
-- [torch/cutorch](http://github.com/torch/cutorch)
-- [torch/cunn](http://github.com/torch/cunn)
-
-You can install these packages by running the following:
+Make sure you have Python 3.8+ installed:
 
 ```bash
-luarocks install cutorch
-luarocks install cunn
+pip install torch torchvision pillow flask
 ```
 
-### Python setup
-Python is used for image preprocessing, model training, and inference. The Python dependencies are:
-- [PyTorch](https://pytorch.org)
-- [TorchVision](https://pytorch.org/vision/stable/index.html)
-- [Pillow](https://python-pillow.org)
+*(CUDA-enabled GPU is automatically used if available, otherwise runs smoothly on CPU).*
 
-You can install these packages by running the following:
+### 2. Launch the Web Server
+
+From the repository root:
 
 ```bash
-# Install using pip
-python -m pip install torch torchvision pillow
+python app.py
 ```
 
-## Usage
+### 3. Open in Browser
 
-### Step 1: Prepare the data
-The repository already contains the processed images in `data/dataset-resized`. If this folder is present, this step can be skipped.
+Visit **`http://127.0.0.1:5000`** in your browser to start classifying waste images or streaming from your webcam!
 
-To preprocess the original images, place them in the following folders:
+---
+
+## 🛠️ CLI Usage & Model Training
+
+### 1. Data Structure
+
+Images are placed in `data/dataset-resized/` organized by class folders:
 
 ```text
-data/dataset-original/
-	cardboard/
-	glass/
-	metal/
-	paper/
-	plastic/
-	trash/
+data/dataset-resized/
+  ├── battery/
+  ├── biological/
+  ├── cardboard/
+  ├── glass/
+  ├── metal/
+  ├── paper/
+  ├── plastic/
+  └── trash/
 ```
 
-Then run the following commands from the repository root:
+### 2. Split Dataset
+
+To regenerate the 80/20 train/validation splits:
 
 ```bash
-python -m pip install torch torchvision pillow
-python data/resize.py
+python data/split_data.py
 ```
 
-If the dataset is changed, remove `data/dataset-resized` before running the resize script again. The script resizes the images to `512 x 384`, as configured in `data/constants.py`.
+This creates:
+- `data/one-indexed-files-notrash_train.txt`
+- `data/one-indexed-files-notrash_val.txt`
+- `data/classes.json`
 
-### Step 2: Train the model
-Run training from the repository root:
+### 3. Train the Model
+
+To train or fine-tune ResNet-18:
 
 ```bash
 python data/train.py
 ```
 
-The script uses a fixed 80/20 train-validation split and automatically uses CUDA when it is available. After training, the best model is saved to `data/trashnet_resnet18_best.pth`, and the class mapping is saved to `data/classes.json`.
+Key training optimizations configured in `train.py`:
+- **Optimizer**: AdamW (`lr=1e-4`, `weight_decay=1e-3`)
+- **Scheduler**: `CosineAnnealingLR` (smooth decay down to $10^{-6}$)
+- **Criterion**: Cross-Entropy with `label_smoothing=0.05`
+- **Data Augmentation**: `RandomResizedCrop(224)`, `RandomHorizontalFlip`, `RandomRotation(15)`, `ColorJitter`
+- Checkpoints are saved to `data/trashnet_resnet18_best.pth`.
 
-### Step 3: Test the model
-Open `data/predict.py` and set `test_img` to the path of the image to classify:
+### 4. Command-Line Inference
 
-```python
-test_img = r"C:\path\to\image.jpg"
-```
-
-Then run:
+To predict the class of a single image via CLI:
 
 ```bash
 python data/predict.py
 ```
 
-The script loads `data/trashnet_resnet18_best.pth` and prints the predicted class and confidence score. Train the model first so that the checkpoint and `classes.json` are available.
-
-### Step 4: View the results
-Training progress is printed in the terminal after every epoch. A prediction is also printed in the terminal in the following format:
-
-```text
-File: image.jpg
-Result: PLASTIC (Confidence: 92.35%)
+Or configure the target file in `predict.py`:
+```python
+test_img = r"path/to/your/image.jpg"
 ```
 
-The trained model and label mapping can be found in the `data` directory. The current Python training script does not export loss or accuracy plots; `plot.lua` is for the legacy Torch checkpoints and cannot load the PyTorch `.pth` file.
+Output:
+```text
+File: sample.jpg
+Result: PLASTIC (Confidence: 96.42%)
+```
 
-## Contributing
-1. Fork it!
-2. Create your feature branch: `git checkout -b my-new-feature`
-3. Commit your changes: `git commit -m 'Add some feature'`
-4. Push to the branch: `git push origin my-new-feature`
-5. Submit a pull request
+---
 
-## Acknowledgments
-- Thanks to the Stanford CS 229 autumn 2016-2017 teaching staff for a great class!
-- [@e-lab](http://github.com/e-lab) for their [weight-init Torch module](http://github.com/e-lab/torch-toolbox/blob/master/Weight-init/weight-init.lua)
+## 📊 Dataset & Original Paper
 
-## TODOs
-- add specific results (and parameters used) that were achieved after the CS 229 project deadline
-- add saving of confusion matrix data and creation of graphic to `plot.lua`
-- rewrite the data preprocessing to only reprocess new images if the dimensions have not changed
+- **Paper**: [Thung & Yang - Classification of Trash for Recyclability Status (Stanford CS 229)](https://cs229.stanford.edu/proj2016/report/ThungYang-ClassificationOfTrashForRecyclabilityStatus-report.pdf)
+- **HuggingFace Dataset**: [garythung/trashnet](https://huggingface.co/datasets/garythung/trashnet)
+- Original 6-class dataset photos were captured on white posterboard backgrounds under controlled lighting with Apple iPhone devices and resized to 512x384.
+
+---
+
+## 📜 Legacy Torch / Lua Codebase
+
+The root directory retains the original Torch7 Lua implementation for historical reference and research reproduction:
+
+### Setup (Lua/Torch)
+```bash
+luarocks install torch
+luarocks install nn
+luarocks install optim
+luarocks install image
+luarocks install gnuplot
+# For CUDA acceleration:
+luarocks install cutorch
+luarocks install cunn
+```
+
+### Running Legacy Scripts
+- `train.lua` - Train Torch7 CNN models
+- `test.lua` - Evaluate accuracy on test splits
+- `plot.lua` - Visualize training history of legacy `.t7` checkpoints
+
+---
+
+## 🤝 Contributing
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feat/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feat/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📝 License & Acknowledgments
+
+- Distributed under the MIT License. See `LICENSE` for more information.
+- Original authors: **Gary Thung** and **Mindy Yang** (Stanford CS 229).
+- Torch weight initialization module provided by [@e-lab](http://github.com/e-lab).

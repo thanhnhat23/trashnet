@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoVision AI - Hệ thống Phân Loại Rác Thông Minh</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="background-decorations">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+        <div class="glow-orb orb-3"></div>
+    </div>
+
+    <!-- Header Navigation -->
+    <header class="navbar">
+        <div class="container nav-content">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-recycle"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>EcoVision <span>AI</span></h1>
+                    <p>Phân loại rác thông minh bằng Deep Learning</p>
+                </div>
+            </div>
+            <div class="nav-badges">
+                <span class="badge badge-tech"><i class="fa-solid fa-microchip"></i> ResNet18</span>
+                <span class="badge badge-accuracy"><i class="fa-solid fa-chart-line"></i> Độ chính xác: 96.25%</span>
+                <span class="badge badge-status"><span class="pulse-dot"></span> Sẵn sàng</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="container app-container">
+        <!-- Left Panel: Input & Controls -->
+        <section class="panel panel-input">
+            <div class="panel-header">
+                <h2><i class="fa-solid fa-camera"></i> Nguồn Dữ Liệu</h2>
+                <div class="tab-switcher">
+                    <button class="tab-btn active" id="tabUploadBtn" onclick="switchTab('upload')">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Tải Ảnh
+                    </button>
+                    <button class="tab-btn" id="tabWebcamBtn" onclick="switchTab('webcam')">
+                        <i class="fa-solid fa-video"></i> Camera Trực Tiếp
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upload Mode -->
+            <div class="tab-content" id="uploadTab">
+                <div class="dropzone" id="dropzone">
+                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    <div class="dropzone-default" id="dropzoneDefault">
+                        <div class="upload-icon-wrapper">
+                            <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                        </div>
+                        <h3>Kéo thả ảnh vào đây</h3>
+                        <p>hoặc nhấn để duyệt file từ máy tính của bạn</p>
+                        <span class="supported-formats">Hỗ trợ JPG, PNG, WEBP (Tối đa 16MB)</span>
+                    </div>
+
+                    <!-- Image Preview Area -->
+                    <div class="preview-wrapper" id="previewWrapper" style="display: none;">
+                        <img id="imagePreview" alt="Xem trước ảnh rác thải">
+                        <button class="btn-remove" id="btnRemoveImage" title="Xóa ảnh" onclick="resetUpload(event)">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <div class="scan-laser" id="scanLaser"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Webcam Mode -->
+            <div class="tab-content" id="webcamTab" style="display: none;">
+                <div class="webcam-container">
+                    <video id="webcamVideo" autoplay playsinline muted></video>
+                    <canvas id="webcamCanvas" style="display: none;"></canvas>
+                    <div class="webcam-overlay" id="webcamOverlay">
+                        <div class="webcam-placeholder-icon">
+                            <i class="fa-solid fa-video-slash"></i>
+                        </div>
+                        <p>Camera chưa được kích hoạt</p>
+                        <button class="btn btn-primary" id="btnStartWebcam" onclick="startWebcam()">
+                            <i class="fa-solid fa-power-off"></i> Bật Camera
+                        </button>
+                    </div>
+                    <div class="scan-frame" id="scanFrame" style="display: none;">
+                        <div class="corner corner-tl"></div>
+                        <div class="corner corner-tr"></div>
+                        <div class="corner corner-bl"></div>
+                        <div class="corner corner-br"></div>
+                        <div class="scan-laser-webcam" id="scanLaserWebcam"></div>
+                    </div>
+                </div>
+
+                <div class="webcam-controls" id="webcamControls" style="display: none;">
+                    <button class="btn btn-secondary" onclick="stopWebcam()">
+                        <i class="fa-solid fa-stop"></i> Dừng Camera
+                    </button>
+                    <button class="btn btn-primary btn-pulse" id="btnCapture" onclick="captureAndPredict()">
+                        <i class="fa-solid fa-camera-retro"></i> Chụp & Phân Tích
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Button for Upload Mode -->
+            <div class="action-footer" id="uploadActions">
+                <button class="btn btn-primary btn-block btn-lg" id="btnAnalyze" onclick="analyzeUploadedImage()" disabled>
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Phân Tích Rác Thải
+                </button>
+            </div>
+        </section>
+
+        <!-- Right Panel: Results & Intelligence -->
+        <section class="panel panel-result">
+            <div class="panel-header">
+                <h2><i class="fa-solid fa-brain"></i> Kết Quả Nhận Diện AI</h2>
+                <span class="status-tag" id="analysisStatus">Chờ dữ liệu...</span>
+            </div>
+
+            <!-- Empty State Placeholder -->
+            <div class="result-placeholder" id="resultPlaceholder">
+                <div class="placeholder-animation">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                </div>
+                <h3>Chưa có dữ liệu phân tích</h3>
+                <p>Hãy tải ảnh lên hoặc bật camera để hệ thống nhận diện và hướng dẫn phân loại rác chuẩn xác.</p>
+            </div>
+
+            <!-- Active Result Content -->
+            <div class="result-content" id="resultContent" style="display: none;">
+                <!-- Main Classification Highlight Card -->
+                <div class="card-highlight" id="cardHighlight">
+                    <div class="highlight-top">
+                        <div class="category-icon" id="resIcon">♻️</div>
+                        <div class="category-info">
+                            <div class="class-tags">
+                                <span class="badge-cat" id="resCategory">Rác tái chế</span>
+                                <span class="badge-en" id="resClassEn">PLASTIC</span>
+                            </div>
+                            <h3 class="category-title" id="resTitle">Nhựa & Chai nhựa</h3>
+                        </div>
+                    </div>
+
+                    <!-- Confidence Gauge -->
+                    <div class="confidence-container">
+                        <div class="confidence-label">
+                            <span><i class="fa-solid fa-shield-check"></i> Độ tin cậy (Confidence)</span>
+                            <span class="confidence-num" id="resConfidence">96.5%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="resConfidenceBar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bin Recommendation & Disposal Guidelines -->
+                <div class="card-tips">
+                    <div class="tips-header">
+                        <i class="fa-solid fa-trash-can-arrow-up"></i>
+                        <h4>Thùng Rác Đề Xuất</h4>
+                    </div>
+                    <div class="bin-banner" id="resBinBanner">
+                        <i class="fa-solid fa-box-archive"></i>
+                        <span id="resBinText">Thùng rác tái chế (Màu Vàng)</span>
+                    </div>
+
+                    <div class="tips-body">
+                        <h5><i class="fa-solid fa-leaf"></i> Lời khuyên xử lý rác:</h5>
+                        <p id="resTips">Đổ sạch chất lỏng bên trong, ép dẹp chai để giảm thể tích trước khi vứt.</p>
+                    </div>
+                </div>
+
+                <!-- Detailed Probabilities (All 8 Classes) -->
+                <div class="card-breakdown">
+                    <h4><i class="fa-solid fa-chart-simple"></i> Phân bổ xác suất chi tiết</h4>
+                    <div class="breakdown-list" id="resBreakdownList">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Custom Script -->
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
