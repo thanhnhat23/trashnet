@@ -189,6 +189,6 @@ if __name__ == '__main__':
         sys.stdout.reconfigure(encoding='utf-8')
     print("=" * 60)
     print("TrashNet Smart AI Web Server is running!")
-    print("Open your browser at: http://127.0.0.1:5000")
+    print("Open your browser at: http://127.0.0.1:5001")
     print("=" * 60)
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5001, debug=False)
