@@ -1,0 +1,7 @@
+image,true_class,predicted_class_yolo,predicted_class_resnet,fusion_prediction
+battery885.jpg,battery,glass,metal,metal
+brown-glass47.jpg,glass,biological,biological,biological
+metal206.jpg,metal,glass,glass,glass
+plastic612.jpg,plastic,plastic,metal,metal
+plastic385.jpg,plastic,plastic,glass,glass
+plastic339.jpg,plastic,paper,paper,paper
