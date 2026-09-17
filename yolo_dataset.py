@@ -2,10 +2,12 @@ import os
 import random
 import shutil
 
-# 1. Đường dẫn
+from pathlib import Path
 
-SOURCE_DIR = r"C:\PBL4\trashnet\data\dataset-resized"
-OUTPUT_DIR = r"C:\PBL4\trashnet\yolo_dataset"
+# 1. Đường dẫn
+BASE_DIR = Path(__file__).resolve().parent
+SOURCE_DIR = BASE_DIR / "data" / "dataset-resized"
+OUTPUT_DIR = BASE_DIR / "yolo_dataset"
 
 # Tỷ lệ train / validation
 TRAIN_RATIO = 0.8
