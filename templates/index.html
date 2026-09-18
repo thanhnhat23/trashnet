@@ -1,198 +1,614 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoVision AI - Hệ thống Phân Loại Rác Thông Minh</title>
-    <!-- Google Fonts -->
+    <title>TrashNet - Hệ thống Phân Loại Rác Đa Mô Hình</title>
+    
+    <!-- Google Font: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5.3.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome 6.5.1 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- Custom Stylesheet -->
-    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- Custom Minimalist Monochrome Stylesheet -->
+    <link rel="stylesheet" href="/static/css/style.css?v=5.6">
 </head>
-<body>
-    <div class="background-decorations">
-        <div class="glow-orb orb-1"></div>
-        <div class="glow-orb orb-2"></div>
-        <div class="glow-orb orb-3"></div>
-    </div>
+<body class="app-body">
 
-    <!-- Header Navigation -->
-    <header class="navbar">
-        <div class="container nav-content">
-            <div class="brand">
-                <div class="brand-icon">
+    <div class="app-wrapper d-flex vh-100 overflow-hidden">
+        
+        <!-- SIDEBAR (Modern Monochrome & Future IoT Expansion) -->
+        <aside class="app-sidebar border-end border-zinc d-flex flex-column flex-shrink-0">
+            <!-- Brand Logo -->
+            <div class="sidebar-brand d-flex align-items-center gap-2 px-3 border-bottom border-zinc">
+                <div class="brand-square">
                     <i class="fa-solid fa-recycle"></i>
                 </div>
-                <div class="brand-text">
-                    <h1>EcoVision <span>AI</span></h1>
-                    <p>Phân loại rác thông minh bằng Deep Learning</p>
+                <div class="brand-info">
+                    <div class="brand-text fw-bold text-white">TRASHNET</div>
+                    <div class="brand-sub text-zinc-500 font-mono">VISION & IOT HUB</div>
                 </div>
             </div>
-            <div class="nav-badges">
-                <span class="badge badge-tech"><i class="fa-solid fa-microchip"></i> ResNet18</span>
-                <span class="badge badge-accuracy"><i class="fa-solid fa-chart-line"></i> Độ chính xác: 96.25%</span>
-                <span class="badge badge-status"><span class="pulse-dot"></span> Sẵn sàng</span>
+
+            <!-- Navigation Links -->
+            <nav class="sidebar-nav flex-grow-1 p-2" id="sidebarNav">
+                <div class="nav-section-title font-mono">CHỨC NĂNG CHÍNH</div>
+                <button type="button" class="sidebar-link active" data-nav-tab="vision" onclick="switchNavTab('vision')">
+                    <i class="fa-solid fa-camera me-2"></i>
+                    <span>Nhận diện AI Vision</span>
+                </button>
+                <button type="button" class="sidebar-link" data-nav-tab="history" onclick="switchNavTab('history')">
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i>
+                    <span>Lịch sử phân loại</span>
+                    <span class="badge border border-zinc ms-auto font-mono" id="sidebarHistoryCount">0</span>
+                </button>
+
+                <div class="nav-section-title font-mono mt-3">MỞ RỘNG IOT & PHẦN CỨNG</div>
+                <button type="button" class="sidebar-link" data-nav-tab="iot" onclick="switchNavTab('iot')">
+                    <i class="fa-solid fa-microchip me-2"></i>
+                    <span>Thiết bị IoT / Servo</span>
+                    <span class="badge bg-zinc-800 text-zinc-400 ms-auto font-mono" style="font-size: 0.65rem;">MỚI</span>
+                </button>
+                <button type="button" class="sidebar-link" data-nav-tab="analytics" onclick="switchNavTab('analytics')">
+                    <i class="fa-solid fa-chart-simple me-2"></i>
+                    <span>Thống kê rác thải</span>
+                </button>
+                <button type="button" class="sidebar-link" data-nav-tab="settings" onclick="switchNavTab('settings')">
+                    <i class="fa-solid fa-sliders me-2"></i>
+                    <span>Cấu hình AI & Cổng COM</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- MAIN VIEWPORT CONTENT -->
+        <div class="app-main-viewport d-flex flex-column flex-grow-1 h-100 overflow-hidden">
+            
+            <!-- Topbar Header -->
+            <header class="main-topbar border-bottom border-zinc px-4 d-flex align-items-center justify-content-between flex-shrink-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-white" id="currentViewTitle">PHÂN LOẠI RÁC QUA AI VISION</span>
+                    <span class="text-zinc-500 font-mono small d-none d-md-inline">&bull; ResNet18 + YOLO11n</span>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-mono btn-sm" onclick="clearAllData()">
+                        <i class="fa-solid fa-rotate-left me-1"></i> Làm mới
+                    </button>
+                </div>
+            </header>
+
+            <!-- Workspace Dynamic Content Container (Full Height Scrollable) -->
+            <div class="main-content-scroll flex-grow-1 overflow-y-auto p-3 p-xl-4">
+                
+                <!-- TAB 1: AI VISION CLASSIFIER (MAIN FEATURE) -->
+                <div id="viewVision" class="nav-view active h-100">
+                    <div class="row g-3 h-100">
+                        
+                        <!-- LEFT COLUMN: INPUT / WEBCAM -->
+                        <div class="col-12 col-lg-5 d-flex flex-column">
+                            <div class="mono-card h-100 d-flex flex-column">
+                                <div class="mono-card-header d-flex align-items-center justify-content-between flex-shrink-0">
+                                    <span class="card-title">ĐẦU VÀO HÌNH ẢNH</span>
+                                    
+                                    <div class="mode-switcher" role="tablist">
+                                        <button class="mode-btn active" id="tabUploadBtn" onclick="switchMode('upload')">
+                                            <i class="fa-solid fa-cloud-arrow-up me-1"></i> Tải ảnh
+                                        </button>
+                                        <button class="mode-btn" id="tabWebcamBtn" onclick="switchMode('webcam')">
+                                            <i class="fa-solid fa-camera me-1"></i> Webcam
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mono-card-body flex-grow-1 d-flex flex-column justify-content-between">
+                                    <!-- Mode 1: Upload File & Paste -->
+                                    <div id="uploadView" class="view-panel">
+                                        <div class="mono-dropzone" id="dropzone">
+                                            <input type="file" id="fileInput" accept="image/*" class="d-none">
+                                            
+                                            <div id="dropzonePlaceholder" class="text-center py-4">
+                                                <i class="fa-solid fa-arrow-up-from-bracket fs-2 text-zinc-400 mb-3"></i>
+                                                <div class="fw-semibold text-white mb-1">Kéo thả ảnh hoặc nhấp để tải lên</div>
+                                                <div class="text-zinc-500 small mb-2">Hỗ trợ JPG, PNG, WEBP &bull; Nhận phím Ctrl+V</div>
+                                                <span class="badge border border-zinc-700 text-zinc-400 font-mono">DUNG LƯỢNG TỐI ĐA 16MB</span>
+                                            </div>
+
+                                            <div id="dropzonePreviewBox" class="d-none position-relative text-center w-100 p-2">
+                                                <img id="imagePreview" alt="Xem trước rác thải" class="img-preview">
+                                                <button type="button" class="btn btn-dark btn-remove-preview" onclick="removeImage(event)" title="Hủy ảnh">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Mode 2: Webcam Stream (Permanently Mirrored - Discord Style) -->
+                                    <div id="webcamView" class="view-panel d-none">
+                                        <div class="webcam-box position-relative">
+                                            <!-- Video permanently mirrored via CSS -->
+                                            <video id="webcamVideo" autoplay playsinline muted class="w-100 h-100 object-fit-cover"></video>
+                                            <canvas id="webcamCanvas" class="d-none"></canvas>
+
+                                            <div id="webcamOffOverlay" class="webcam-off-overlay d-flex flex-column align-items-center justify-content-center text-center p-4">
+                                                <i class="fa-solid fa-video-slash fs-2 text-zinc-500 mb-2"></i>
+                                                <div class="text-zinc-400 small mb-3">Camera đang tắt</div>
+                                                <button class="btn btn-white btn-sm" onclick="startWebcam()">
+                                                    <i class="fa-solid fa-power-off me-1"></i> Bật Camera
+                                                </button>
+                                            </div>
+
+                                            <div id="webcamHud" class="webcam-hud d-none">
+                                                <div class="hud-corner tl"></div>
+                                                <div class="hud-corner tr"></div>
+                                                <div class="hud-corner bl"></div>
+                                                <div class="hud-corner br"></div>
+                                            </div>
+                                        </div>
+
+                                        <div id="webcamActionGroup" class="d-none mt-3 d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-mono" onclick="stopWebcam()">
+                                                <i class="fa-solid fa-stop me-1"></i> Dừng
+                                            </button>
+                                            <button type="button" class="btn btn-white flex-grow-1" id="btnSnap" onclick="captureWebcam()">
+                                                <i class="fa-solid fa-camera me-1"></i> Chụp & Nhận diện
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Submit Button for Upload Mode -->
+                                    <div id="uploadActionGroup" class="mt-3">
+                                        <button type="button" class="btn btn-white w-100 py-2 fw-semibold" id="btnSubmit" onclick="runAnalysis()" disabled>
+                                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i> PHÂN TÍCH LATE FUSION
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: RESULTS & METRICS -->
+                        <div class="col-12 col-lg-7 d-flex flex-column">
+                            <div class="mono-card h-100 d-flex flex-column">
+                                <div class="mono-card-header d-flex align-items-center justify-content-between flex-shrink-0">
+                                    <span class="card-title">KẾT QUẢ PHÂN LOẠI</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge border border-zinc-700 text-zinc-400 font-mono" id="engineStatus">SẴN SÀNG</span>
+                                    </div>
+                                </div>
+
+                                <div class="mono-card-body flex-grow-1 overflow-y-auto">
+                                    
+                                    <!-- Empty State -->
+                                    <div id="emptyState" class="text-center py-5">
+                                        <i class="fa-solid fa-layer-group text-zinc-600 display-5 mb-3"></i>
+                                        <h5 class="fw-semibold text-white mb-1">Chưa có kết quả phân loại</h5>
+                                        <p class="text-zinc-500 small mb-0">Tải ảnh lên hoặc chụp từ webcam để hệ thống nhận diện loại rác thải.</p>
+                                    </div>
+
+                                    <!-- Active Result State -->
+                                    <div id="resultState" class="d-none">
+                                        
+                                        <!-- Main Result Header -->
+                                        <div class="result-headline-box p-3 mb-3 border border-zinc">
+                                            <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                                <div>
+                                                    <span class="badge badge-category mb-1" id="resCategoryTag">RÁC TÁI CHẾ</span>
+                                                    <h3 class="fw-bold text-white mb-0" id="resClassTitle">Nhựa & Chai nhựa</h3>
+                                                    <div class="font-mono text-zinc-400 small" id="resClassEn">PLASTIC</div>
+                                                </div>
+                                                <div class="text-end">
+                                                    <div class="font-mono text-zinc-500 small">ĐỘ TIN CẬY</div>
+                                                    <div class="display-6 fw-bold text-white font-mono" id="resConfidenceNum">98.5%</div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Monochrome Confidence Bar -->
+                                            <div class="mono-progress-bg mt-2">
+                                                <div class="mono-progress-bar" id="resProgressBar" style="width: 0%;"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Multi-model Decision Matrix -->
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-sm-6">
+                                                <div class="metric-cell p-2 border border-zinc">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="font-mono text-zinc-500 small">RESNET-18 (70%)</span>
+                                                        <span class="font-mono small text-zinc-300" id="resNetConfVal">0%</span>
+                                                    </div>
+                                                    <div class="fw-semibold text-white text-truncate" id="resNetPredVal">--</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="metric-cell p-2 border border-zinc">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="font-mono text-zinc-500 small">YOLO11n (30%)</span>
+                                                        <span class="font-mono small text-zinc-300" id="yoloConfVal">0%</span>
+                                                    </div>
+                                                    <div class="fw-semibold text-white text-truncate" id="yoloPredVal">--</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Disposal Bin Instruction -->
+                                        <div class="instruction-box p-3 mb-3 border border-zinc">
+                                            <div class="d-flex align-items-center gap-2 mb-1">
+                                                <i class="fa-solid fa-trash-can text-zinc-400"></i>
+                                                <span class="fw-semibold text-white">Thùng rác quy định:</span>
+                                                <span class="fw-bold text-white" id="resBinName">Thùng rác tái chế</span>
+                                            </div>
+                                            <p class="text-zinc-400 small mb-0" id="resTipsContent">
+                                                --
+                                            </p>
+                                        </div>
+
+                                        <!-- Probability Table -->
+                                        <div class="border border-zinc">
+                                            <div class="p-2 border-bottom border-zinc bg-zinc-900 d-flex justify-content-between align-items-center">
+                                                <span class="small font-mono text-zinc-400">PHÂN PHỐI XÁC SUẤT 8 LỚP (SOFT VOTING)</span>
+                                                <span class="small font-mono text-zinc-500">% CONFIDENCE</span>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-dark table-sm mb-0 align-middle font-mono small mono-table">
+                                                    <tbody id="probabilityTableBody">
+                                                        <!-- Dynamically populated -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB 2: SCAN HISTORY VIEW -->
+                <div id="viewHistory" class="nav-view d-none h-100">
+                    <div class="mono-card h-100 d-flex flex-column">
+                        <div class="mono-card-header d-flex align-items-center justify-content-between">
+                            <span class="card-title">NHẬT KÝ PHÂN LOẠI TRONG PHIÊN</span>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearHistory()">
+                                <i class="fa-solid fa-trash me-1"></i> Xóa tất cả
+                            </button>
+                        </div>
+                        <div class="mono-card-body flex-grow-1 overflow-y-auto">
+                            <div id="fullHistoryEmpty" class="text-center py-5 text-zinc-500 font-mono">
+                                <i class="fa-solid fa-clock-rotate-left fs-1 mb-2 text-zinc-600"></i>
+                                <div>Chưa có dữ liệu phân loại nào trong phiên làm việc.</div>
+                            </div>
+                            <div class="row g-2 d-none" id="fullHistoryGrid">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: IOT & ROTARY SMART TRASH BIN HUB -->
+                <div id="viewIot" class="nav-view d-none h-100">
+                    <div class="mono-card h-100 d-flex flex-column">
+                        <div class="mono-card-header d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="card-title">HỆ THỐNG THÙNG RÁC XOAY TỰ ĐỘNG & CẢM BIẾN BÁO ĐẦY</span>
+                                <span class="text-zinc-500 font-mono small ms-2 d-none d-md-inline">&bull; 4 Ngăn Mâm Xoay + Khay Lật + Cảm Biến Đỉnh</span>
+                            </div>
+                            <span class="badge border border-zinc-700 text-zinc-400 font-mono" id="iotSystemStatus">HỆ THỐNG SẴN SÀNG</span>
+                        </div>
+                        <div class="mono-card-body flex-grow-1 overflow-y-auto">
+                            
+                            <!-- Mechanical Architecture Overview Banner -->
+                            <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="fw-semibold text-white d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-arrows-spin text-zinc-400"></i> Quy Trình Vận Hành Cơ Khí Thùng Rác Xoay 4 Ngăn
+                                    </div>
+                                    <button type="button" class="btn btn-white btn-sm" onclick="simulateRotaryCycle('plastic')">
+                                        <i class="fa-solid fa-play me-1"></i> Chạy thử chu trình (Demo)
+                                    </button>
+                                </div>
+                                <div class="row g-2 text-center small font-mono">
+                                    <div class="col-6 col-md-3">
+                                        <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator1">
+                                            <div class="text-zinc-500 small">BƯỚC 1</div>
+                                            <div class="text-white fw-bold mt-1">Khay Nền Đơn Sắc</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Camera đỉnh chụp AI</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator2">
+                                            <div class="text-zinc-500 small">BƯỚC 2</div>
+                                            <div class="text-white fw-bold mt-1">Mâm Xoay 4 Ngăn</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Xoay góc 0°-270°</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator3">
+                                            <div class="text-zinc-500 small">BƯỚC 3</div>
+                                            <div class="text-white fw-bold mt-1">Khay Lật Thả Rác</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Servo mở 90° rồi đóng</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator4">
+                                            <div class="text-zinc-500 small">BƯỚC 4</div>
+                                            <div class="text-white fw-bold mt-1">Cảm Biến Đỉnh Quét</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Báo đầy khi rác chạm nóc</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <!-- LEFT COLUMN: ROTARY MOTOR & TRAPDOOR CONTROLS -->
+                                <div class="col-12 col-xl-6">
+                                    
+                                    <!-- 1. Rotary Stepper Motor Controls -->
+                                    <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
+                                        <div class="fw-semibold text-white mb-2 d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="fa-solid fa-circle-notch text-zinc-400"></i> Động Cơ Xoay Mâm 4 Ngăn (Stepper / Servo 360°)
+                                            </div>
+                                            <span class="badge border border-zinc text-zinc-400 font-mono small" id="carouselAngleBadge">GÓC HIỆN TẠI: 0°</span>
+                                        </div>
+                                        <p class="small text-zinc-500 mb-2">Động cơ điều khiển mâm tròn xoay đúng ngăn rác cần hứng về vị trí dưới khay thả:</p>
+                                        <div class="d-grid gap-2">
+                                            <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
+                                                <div>
+                                                    <span class="text-white fw-medium">Ngăn 1: Rác tái chế</span>
+                                                    <span class="text-zinc-500 small ms-1">(Plastic, Metal, Paper, Glass)</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="font-mono text-zinc-400">Góc 0°</span>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác tái chế')">Xoay tới</button>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
+                                                <div>
+                                                    <span class="text-white fw-medium">Ngăn 2: Rác hữu cơ</span>
+                                                    <span class="text-zinc-500 small ms-1">(Organic / Biological / Food)</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="font-mono text-zinc-300">Góc 90°</span>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Rác hữu cơ')">Xoay tới</button>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
+                                                <div>
+                                                    <span class="text-white fw-medium">Ngăn 3: Rác nguy hại</span>
+                                                    <span class="text-zinc-500 small ms-1">(Battery, Electronics)</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="font-mono text-zinc-300">Góc 180°</span>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(180, 'Rác nguy hại')">Xoay tới</button>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
+                                                <div>
+                                                    <span class="text-white fw-medium">Ngăn 4: Rác vô cơ</span>
+                                                    <span class="text-zinc-500 small ms-1">(Trash / Non-recyclable)</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="font-mono text-zinc-300">Góc 270°</span>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Rác vô cơ')">Xoay tới</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. Trapdoor Drop Mechanism -->
+                                    <div class="p-3 border border-zinc bg-zinc-900 rounded-1">
+                                        <div class="fw-semibold text-white mb-2 d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="fa-solid fa-door-open text-zinc-400"></i> Khay Lật Thả Rác (Drop Trapdoor Servo)
+                                            </div>
+                                            <span class="badge border border-zinc text-zinc-400 font-mono small" id="trapdoorStatusBadge">TRẠNG THÁI: ĐÓNG (0°)</span>
+                                        </div>
+                                        <p class="small text-zinc-500 mb-2">Giữ rác trên bề mặt đơn sắc để camera nhận diện, sau đó lật nghiêng để rác rơi tự do xuống ngăn rác:</p>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(true)">
+                                                <i class="fa-solid fa-arrow-down me-1"></i> Mở khay (Thả rác - 90°)
+                                            </button>
+                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(false)">
+                                                <i class="fa-solid fa-lock me-1"></i> Đóng khay (Nhận diện - 0°)
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- RIGHT COLUMN: TOP FULL LEVEL SENSORS & COM/MQTT -->
+                                <div class="col-12 col-xl-6">
+                                    
+                                    <!-- 3. Top Level Sensor (Cảm biến gắn đỉnh báo đầy) -->
+                                    <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
+                                        <div class="fw-semibold text-white mb-2 d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="fa-solid fa-satellite-dish text-zinc-400"></i> Cảm Biến Gắn Đỉnh Thùng Rác (Báo Đầy Mức Cao Nhất)
+                                            </div>
+                                            <span class="badge border border-zinc text-zinc-400 font-mono small">CHỦ ĐỘNG QUÉT</span>
+                                        </div>
+                                        <p class="small text-zinc-500 mb-2">Cảm biến gắn ở nóc cao nhất chiếu xuống từng ngăn để phát hiện khi rác dâng chạm ngưỡng miệng thùng:</p>
+                                        
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-6">
+                                                <label class="small text-zinc-400 font-mono">Loại cảm biến sử dụng</label>
+                                                <select class="form-select form-select-sm bg-black border-zinc text-white font-mono" id="levelSensorType">
+                                                    <option selected>HC-SR04 (Sóng siêu âm)</option>
+                                                    <option>VL53L0X (Laser Time-of-Flight)</option>
+                                                    <option>E18-D80NK (Hồng ngoại tiệm cận)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="small text-zinc-400 font-mono">Khoảng cách báo đầy</label>
+                                                <select class="form-select form-select-sm bg-black border-zinc text-white font-mono" id="levelThreshold">
+                                                    <option selected>&le; 5 cm (Đầy 90%)</option>
+                                                    <option>&le; 3 cm (Đầy 95%)</option>
+                                                    <option>&le; 8 cm (Đầy 80%)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Realtime Fill Level Monitor for 4 Compartments -->
+                                        <div class="small text-zinc-400 font-mono mb-2">MỨC DUNG TÍCH 4 NGĂN HIỆN TẠI:</div>
+                                        <div class="d-grid gap-2">
+                                            <div>
+                                                <div class="d-flex justify-content-between small font-mono mb-1">
+                                                    <span>Ngăn Tái Chế:</span>
+                                                    <span id="fillPctRecyclable">25% (Cách nóc 22cm)</span>
+                                                </div>
+                                                <div class="mono-progress-bg">
+                                                    <div class="mono-progress-bar" id="fillBarRecyclable" style="width: 25%;"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="d-flex justify-content-between small font-mono mb-1">
+                                                    <span>Ngăn Hữu Cơ:</span>
+                                                    <span id="fillPctOrganic">40% (Cách nóc 18cm)</span>
+                                                </div>
+                                                <div class="mono-progress-bg">
+                                                    <div class="mono-progress-bar" id="fillBarOrganic" style="width: 40%;"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="d-flex justify-content-between small font-mono mb-1">
+                                                    <span>Ngăn Nguy Hại:</span>
+                                                    <span id="fillPctHazardous">10% (Cách nóc 27cm)</span>
+                                                </div>
+                                                <div class="mono-progress-bg">
+                                                    <div class="mono-progress-bar" id="fillBarHazardous" style="width: 10%;"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="d-flex justify-content-between small font-mono mb-1">
+                                                    <span>Ngăn Vô Cơ:</span>
+                                                    <span id="fillPctTrash">88% (Cách nóc 4cm - CẢNH BÁO)</span>
+                                                </div>
+                                                <div class="mono-progress-bg">
+                                                    <div class="mono-progress-bar" id="fillBarTrash" style="width: 88%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <!-- 4. Microcontroller Serial & MQTT Integration -->
+                                    <div class="p-3 border border-zinc bg-zinc-900 rounded-1">
+                                        <div class="fw-semibold text-white mb-2 d-flex align-items-center gap-2">
+                                            <i class="fa-solid fa-microchip text-zinc-400"></i> Cổng Vi Điều Khiển & Telemetry
+                                        </div>
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-6">
+                                                <label class="small text-zinc-400 font-mono">COM Port (ESP32/Arduino)</label>
+                                                <select class="form-select form-select-sm bg-black border-zinc text-white font-mono" id="iotComPort">
+                                                    <option>COM3 (ESP32 DevKit V1)</option>
+                                                    <option>COM4 (Arduino Uno R3)</option>
+                                                    <option>COM5 (Arduino Nano CH340)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="small text-zinc-400 font-mono">Baud Rate</label>
+                                                <select class="form-select form-select-sm bg-black border-zinc text-white font-mono" id="iotBaudRate">
+                                                    <option selected>115200</option>
+                                                    <option>9600</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="alert('Đã lưu cấu hình kết nối Serial.')">
+                                                <i class="fa-solid fa-link me-1"></i> Kết Nối Serial
+                                            </button>
+                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="alert('Đã cập nhật cấu hình đẩy dữ liệu MQTT Telemetry.')">
+                                                <i class="fa-solid fa-wifi me-1"></i> Cấu hình MQTT
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: ANALYTICS & LOGS -->
+                <div id="viewAnalytics" class="nav-view d-none h-100">
+                    <div class="mono-card h-100 d-flex flex-column">
+                        <div class="mono-card-header d-flex align-items-center justify-content-between">
+                            <span class="card-title">THỐNG KÊ RÁC THẢI & BÁO CÁO PHÂN LOẠI</span>
+                        </div>
+                        <div class="mono-card-body flex-grow-1 overflow-y-auto">
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-3">
+                                    <div class="metric-cell p-3 border border-zinc text-center">
+                                        <div class="small text-zinc-500 font-mono">TỔNG ĐÃ QUÉT</div>
+                                        <div class="display-6 fw-bold text-white font-mono" id="statTotalScans">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-cell p-3 border border-zinc text-center">
+                                        <div class="small text-zinc-500 font-mono">TÁI CHẾ ĐƯỢC</div>
+                                        <div class="display-6 fw-bold text-white font-mono" id="statRecyclable">0%</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-cell p-3 border border-zinc text-center">
+                                        <div class="small text-zinc-500 font-mono">RÁC NGUY HẠI</div>
+                                        <div class="display-6 fw-bold text-white font-mono" id="statHazardous">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-cell p-3 border border-zinc text-center">
+                                        <div class="small text-zinc-500 font-mono">RÁC HỮU CƠ</div>
+                                        <div class="display-6 fw-bold text-white font-mono" id="statOrganic">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-4 border border-zinc bg-zinc-900 rounded-1 text-center text-zinc-500 font-mono small">
+                                Hệ thống sẽ tiếp tục ghi nhận dữ liệu theo thời gian thực khi bạn tiến hành phân loại rác hoặc kết nối với trạm thu gom IoT.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 5: SETTINGS -->
+                <div id="viewSettings" class="nav-view d-none h-100">
+                    <div class="mono-card h-100 d-flex flex-column">
+                        <div class="mono-card-header d-flex align-items-center justify-content-between">
+                            <span class="card-title">CẤU HÌNH HỆ THỐNG & TRỌNG SỐ THUẬT TOÁN</span>
+                        </div>
+                        <div class="mono-card-body flex-grow-1 overflow-y-auto">
+                            <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
+                                <div class="fw-semibold text-white mb-2">Trọng số Late Fusion (Soft Voting)</div>
+                                <div class="row g-2 align-items-center mb-3">
+                                    <div class="col-md-6">
+                                        <label class="small text-zinc-400 font-mono">ResNet-18 Weight</label>
+                                        <input type="text" class="form-control form-control-sm bg-black border-zinc text-white font-mono" value="0.70" readonly>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="small text-zinc-400 font-mono">YOLO11n-cls Weight</label>
+                                        <input type="text" class="form-control form-control-sm bg-black border-zinc text-white font-mono" value="0.30" readonly>
+                                    </div>
+                                </div>
+                                <p class="small text-zinc-500 mb-0 font-mono">Tỷ lệ 0.70 : 0.30 đã được tối ưu qua Grid Search đạt 99.37% accuracy.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
-    </header>
+    </div>
 
-    <!-- Main Content Area -->
-    <main class="container app-container">
-        <!-- Left Panel: Input & Controls -->
-        <section class="panel panel-input">
-            <div class="panel-header">
-                <h2><i class="fa-solid fa-camera"></i> Nguồn Dữ Liệu</h2>
-                <div class="tab-switcher">
-                    <button class="tab-btn active" id="tabUploadBtn" onclick="switchTab('upload')">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> Tải Ảnh
-                    </button>
-                    <button class="tab-btn" id="tabWebcamBtn" onclick="switchTab('webcam')">
-                        <i class="fa-solid fa-video"></i> Camera Trực Tiếp
-                    </button>
-                </div>
-            </div>
-
-            <!-- Upload Mode -->
-            <div class="tab-content" id="uploadTab">
-                <div class="dropzone" id="dropzone">
-                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
-                    <div class="dropzone-default" id="dropzoneDefault">
-                        <div class="upload-icon-wrapper">
-                            <i class="fa-solid fa-arrow-up-from-bracket"></i>
-                        </div>
-                        <h3>Kéo thả ảnh vào đây</h3>
-                        <p>hoặc nhấn để duyệt file từ máy tính của bạn</p>
-                        <span class="supported-formats">Hỗ trợ JPG, PNG, WEBP (Tối đa 16MB)</span>
-                    </div>
-
-                    <!-- Image Preview Area -->
-                    <div class="preview-wrapper" id="previewWrapper" style="display: none;">
-                        <img id="imagePreview" alt="Xem trước ảnh rác thải">
-                        <button class="btn-remove" id="btnRemoveImage" title="Xóa ảnh" onclick="resetUpload(event)">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                        <div class="scan-laser" id="scanLaser"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Webcam Mode -->
-            <div class="tab-content" id="webcamTab" style="display: none;">
-                <div class="webcam-container">
-                    <video id="webcamVideo" autoplay playsinline muted></video>
-                    <canvas id="webcamCanvas" style="display: none;"></canvas>
-                    <div class="webcam-overlay" id="webcamOverlay">
-                        <div class="webcam-placeholder-icon">
-                            <i class="fa-solid fa-video-slash"></i>
-                        </div>
-                        <p>Camera chưa được kích hoạt</p>
-                        <button class="btn btn-primary" id="btnStartWebcam" onclick="startWebcam()">
-                            <i class="fa-solid fa-power-off"></i> Bật Camera
-                        </button>
-                    </div>
-                    <div class="scan-frame" id="scanFrame" style="display: none;">
-                        <div class="corner corner-tl"></div>
-                        <div class="corner corner-tr"></div>
-                        <div class="corner corner-bl"></div>
-                        <div class="corner corner-br"></div>
-                        <div class="scan-laser-webcam" id="scanLaserWebcam"></div>
-                    </div>
-                </div>
-
-                <div class="webcam-controls" id="webcamControls" style="display: none;">
-                    <button class="btn btn-secondary" onclick="stopWebcam()">
-                        <i class="fa-solid fa-stop"></i> Dừng Camera
-                    </button>
-                    <button class="btn btn-primary btn-pulse" id="btnCapture" onclick="captureAndPredict()">
-                        <i class="fa-solid fa-camera-retro"></i> Chụp & Phân Tích
-                    </button>
-                </div>
-            </div>
-
-            <!-- Action Button for Upload Mode -->
-            <div class="action-footer" id="uploadActions">
-                <button class="btn btn-primary btn-block btn-lg" id="btnAnalyze" onclick="analyzeUploadedImage()" disabled>
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> Phân Tích Rác Thải
-                </button>
-            </div>
-        </section>
-
-        <!-- Right Panel: Results & Intelligence -->
-        <section class="panel panel-result">
-            <div class="panel-header">
-                <h2><i class="fa-solid fa-brain"></i> Kết Quả Nhận Diện AI</h2>
-                <span class="status-tag" id="analysisStatus">Chờ dữ liệu...</span>
-            </div>
-
-            <!-- Empty State Placeholder -->
-            <div class="result-placeholder" id="resultPlaceholder">
-                <div class="placeholder-animation">
-                    <i class="fa-solid fa-magnifying-glass-chart"></i>
-                </div>
-                <h3>Chưa có dữ liệu phân tích</h3>
-                <p>Hãy tải ảnh lên hoặc bật camera để hệ thống nhận diện và hướng dẫn phân loại rác chuẩn xác.</p>
-            </div>
-
-            <!-- Active Result Content -->
-            <div class="result-content" id="resultContent" style="display: none;">
-                <!-- Main Classification Highlight Card -->
-                <div class="card-highlight" id="cardHighlight">
-                    <div class="highlight-top">
-                        <div class="category-icon" id="resIcon">♻️</div>
-                        <div class="category-info">
-                            <div class="class-tags">
-                                <span class="badge-cat" id="resCategory">Rác tái chế</span>
-                                <span class="badge-en" id="resClassEn">PLASTIC</span>
-                            </div>
-                            <h3 class="category-title" id="resTitle">Nhựa & Chai nhựa</h3>
-                        </div>
-                    </div>
-
-                    <!-- Confidence Gauge -->
-                    <div class="confidence-container">
-                        <div class="confidence-label">
-                            <span><i class="fa-solid fa-shield-check"></i> Độ tin cậy (Confidence)</span>
-                            <span class="confidence-num" id="resConfidence">96.5%</span>
-                        </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill" id="resConfidenceBar" style="width: 0%;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Bin Recommendation & Disposal Guidelines -->
-                <div class="card-tips">
-                    <div class="tips-header">
-                        <i class="fa-solid fa-trash-can-arrow-up"></i>
-                        <h4>Thùng Rác Đề Xuất</h4>
-                    </div>
-                    <div class="bin-banner" id="resBinBanner">
-                        <i class="fa-solid fa-box-archive"></i>
-                        <span id="resBinText">Thùng rác tái chế (Màu Vàng)</span>
-                    </div>
-
-                    <div class="tips-body">
-                        <h5><i class="fa-solid fa-leaf"></i> Lời khuyên xử lý rác:</h5>
-                        <p id="resTips">Đổ sạch chất lỏng bên trong, ép dẹp chai để giảm thể tích trước khi vứt.</p>
-                    </div>
-                </div>
-
-                <!-- Detailed Probabilities (All 8 Classes) -->
-                <div class="card-breakdown">
-                    <h4><i class="fa-solid fa-chart-simple"></i> Phân bổ xác suất chi tiết</h4>
-                    <div class="breakdown-list" id="resBreakdownList">
-                        <!-- Populated dynamically by JS -->
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Custom Script -->
-    <script src="/static/js/main.js"></script>
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Main JS -->
+    <script src="/static/js/main.js?v=5.6"></script>
 </body>
 </html>
