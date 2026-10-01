@@ -197,31 +197,328 @@ def serve_sample(filename):
     return send_from_directory(BASE_DIR / 'test_yolo', filename)
 
 
+@app.route('/firmware_esp32_cam/<path:filename>')
+def serve_firmware(filename):
+    return send_from_directory(BASE_DIR / 'firmware_esp32_cam', filename)
+
+
+
+import urllib.request
+import urllib.error
+import urllib.parse
+import threading
+
+# ==============================================================================
+# CẤU HÌNH GỬI TÍN HIỆU ĐIỀU KHIỂN SANG ESP32 ACTUATOR (SERVO 180° + STEPPER 4 HƯỚNG + LCD 1602A)
+# ==============================================================================
+ENABLE_ESP32_ACTUATOR = True  # Kích hoạt điều khiển ESP32 Thường
+ESP32_ACTUATOR_IP = "http://172.16.3.205"  # IP thực tế của ESP32 Actuator tại cafe/wifi hiện tại
+
+# Bảng quy hoạch 4 Ngăn Rác chuẩn xác cho Động cơ bước + Servo 180° + Màn hình LCD 1602
+BIN_MAPPING = {
+    # 1. Ngăn 1: Rác Hữu Cơ (biological: thức ăn thừa, rau củ, quả)
+    'biological': {
+        'bin': 1,
+        'bin_name': 'Rác Hữu Cơ Sinh Hoạt',
+        'lcd_title': 'Huu Co (Do an)',
+        'angle': 0,
+        'color': '#22c55e',
+        'icon': 'fa-solid fa-apple-whole'
+    },
+    # 2. Ngăn 2: Rác Tái Chế (cardboard, glass, metal, paper, plastic)
+    'cardboard': {
+        'bin': 2,
+        'bin_name': 'Rác Tái Chế (Giấy bìa)',
+        'lcd_title': 'Bia Carton',
+        'angle': 90,
+        'color': '#3b82f6',
+        'icon': 'fa-solid fa-box-open'
+    },
+    'glass': {
+        'bin': 2,
+        'bin_name': 'Rác Tái Chế (Thủy tinh)',
+        'lcd_title': 'Chai Thuy Tinh',
+        'angle': 90,
+        'color': '#06b6d4',
+        'icon': 'fa-solid fa-wine-glass-empty'
+    },
+    'metal': {
+        'bin': 2,
+        'bin_name': 'Rác Tái Chế (Kim loại)',
+        'lcd_title': 'Vo Lon Kim Loai',
+        'angle': 90,
+        'color': '#f59e0b',
+        'icon': 'fa-solid fa-cube'
+    },
+    'paper': {
+        'bin': 2,
+        'bin_name': 'Rác Tái Chế (Giấy báo)',
+        'lcd_title': 'Giay Bao / Tap',
+        'angle': 90,
+        'color': '#60a5fa',
+        'icon': 'fa-solid fa-newspaper'
+    },
+    'plastic': {
+        'bin': 2,
+        'bin_name': 'Rác Tái Chế (Nhựa & Chai PET)',
+        'lcd_title': 'Chai Nhua (PET)',
+        'angle': 90,
+        'color': '#10b981',
+        'icon': 'fa-solid fa-bottle-water'
+    },
+    # 3. Ngăn 3: Rác Vô Cơ Khác (trash: túi nilon bẩn, rác thải không tái chế)
+    'trash': {
+        'bin': 3,
+        'bin_name': 'Rác Vô Cơ Sinh Hoạt',
+        'lcd_title': 'Rac Vo Co Khac',
+        'angle': 180,
+        'color': '#94a3b8',
+        'icon': 'fa-solid fa-trash-can'
+    },
+    # 4. Ngăn 4: Rác Nguy Hại (battery: pin, ắc quy, thiết bị điện tử)
+    'battery': {
+        'bin': 4,
+        'bin_name': 'Rác Thải Nguy Hại',
+        'lcd_title': 'Pin / Ac Quy',
+        'angle': 270,
+        'color': '#ef4444',
+        'icon': 'fa-solid fa-car-battery'
+    }
+}
+
+def get_bin_info_for_label(label):
+    lbl = (label or '').strip().lower()
+    return BIN_MAPPING.get(lbl, {
+        'bin': 3,
+        'bin_name': 'Rác Vô Cơ (Mặc định)',
+        'lcd_title': 'Rac Vo Co Khac',
+        'angle': 180,
+        'color': '#94a3b8',
+        'icon': 'fa-solid fa-trash-can'
+    })
+
+def _dispatch_esp32_actuator_req(url):
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0'})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            print(f"[ESP32-ACTUATOR] >>> Gửi lệnh thành công ({url}) - HTTP {resp.getcode()}")
+    except Exception as err:
+        print(f"[ESP32-ACTUATOR CẢNH BÁO] Không thể kết nối tới ESP32 Actuator ({url}): {err}")
+
+def send_command_to_esp32_actuator(label, display_name=None):
+    """
+    Gửi tín hiệu điều khiển bất đồng bộ sang ESP32 Thường:
+    1. Hiển thị loại rác và số ngăn lên màn hình LCD 1602
+    2. Động cơ bước 28BYJ-48 xoay thùng rác về ngăn tương ứng (0°, 90°, 180°, 270°)
+    3. Servo MG995 mở nắp 180° để rác rơi vào, sau đó đóng nắp về 0°
+    """
+    if not ENABLE_ESP32_ACTUATOR:
+        return None
+
+    bin_info = get_bin_info_for_label(label)
+    bin_num = bin_info['bin']
+    lcd_name = bin_info.get('lcd_title', label)
+
+    # Đảm bảo chuỗi tối đa 16 ký tự, chuẩn ASCII cho LCD 1602
+    clean_name = str(lcd_name)[:16]
+    url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/action?bin={bin_num}&label={label}&name={urllib.parse.quote(clean_name)}"
+    
+    # Chạy trên Thread riêng biệt để không làm chậm phản hồi AI của Web
+    th = threading.Thread(target=_dispatch_esp32_actuator_req, args=(url,), daemon=True)
+    th.start()
+    return bin_info
+
 
 @app.route('/api/predict', methods=['POST'])
 def handle_predict():
     try:
-        # Handle file upload
+        raw_res = None
+
+        # 1. Handle file upload
         if 'image' in request.files:
             file = request.files['image']
-            if file.filename == '':
-                return jsonify({'error': 'Không tìm thấy file ảnh được chọn.'}), 400
-            image = Image.open(file.stream)
-            raw_res = predict(image)
-            return jsonify(format_prediction_result(raw_res))
+            if file.filename != '':
+                image = Image.open(file.stream)
+                raw_res = predict(image)
 
-        # Handle base64 from webcam
-        data = request.get_json(silent=True)
-        if data and 'image_base64' in data:
-            raw_base64 = data['image_base64']
-            if ',' in raw_base64:
-                raw_base64 = raw_base64.split(',')[1]
-            image_bytes = base64.b64decode(raw_base64)
-            image = Image.open(io.BytesIO(image_bytes))
-            raw_res = predict(image)
-            return jsonify(format_prediction_result(raw_res))
+        # 2. Handle base64 from webcam (JSON body)
+        if raw_res is None:
+            data = request.get_json(silent=True)
+            if data and 'image_base64' in data:
+                raw_base64 = data['image_base64']
+                if ',' in raw_base64:
+                    raw_base64 = raw_base64.split(',')[1]
+                image_bytes = base64.b64decode(raw_base64)
+                image = Image.open(io.BytesIO(image_bytes))
+                raw_res = predict(image)
 
-        return jsonify({'error': 'Không có dữ liệu ảnh hợp lệ được cung cấp.'}), 400
+        # 3. Handle raw binary JPEG sent directly from ESP32-CAM HTTP POST
+        if raw_res is None and request.data and len(request.data) > 0:
+            try:
+                image = Image.open(io.BytesIO(request.data))
+                raw_res = predict(image)
+            except Exception:
+                pass
+
+        if raw_res is None:
+            return jsonify({'error': 'Không có dữ liệu ảnh hợp lệ được cung cấp.'}), 400
+
+        formatted = format_prediction_result(raw_res)
+
+        # Trích xuất nhãn dự đoán tốt nhất và gửi tín hiệu sang ESP32 Actuator (4 ngăn + Servo 180° + LCD)
+        best_label = formatted.get('fusion', {}).get('predicted_label') or formatted.get('resnet', {}).get('predicted_label') or formatted.get('class')
+        if best_label:
+            actuator_res = send_command_to_esp32_actuator(best_label, formatted.get('name_vi'))
+            if actuator_res:
+                formatted['actuator'] = actuator_res
+
+        return jsonify(formatted)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/esp32/ping', methods=['GET', 'POST'])
+def esp32_ping():
+    """Check connectivity to an ESP32-CAM IP or URL."""
+    target = request.args.get('ip') or request.args.get('url')
+    if not target and request.is_json:
+        data = request.get_json(silent=True) or {}
+        target = data.get('ip') or data.get('url')
+
+    if not target:
+        return jsonify({'error': 'Vui lòng cung cấp IP hoặc URL của ESP32-CAM'}), 400
+
+    target = target.strip()
+    if not target.startswith('http://') and not target.startswith('https://'):
+        target = 'http://' + target
+
+    try:
+        req = urllib.request.Request(target, headers={'User-Agent': 'TrashNet-Server/1.0'})
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            status_code = resp.getcode()
+            return jsonify({'online': True, 'status': status_code, 'target': target})
+    except Exception as e:
+        return jsonify({'online': False, 'error': str(e), 'target': target}), 200
+
+
+@app.route('/api/esp32/capture', methods=['GET', 'POST'])
+def esp32_capture():
+    """Fetch frame from ESP32-CAM /capture endpoint and run AI classification."""
+    target = request.args.get('ip') or request.args.get('url')
+    if not target and request.is_json:
+        data = request.get_json(silent=True) or {}
+        target = data.get('ip') or data.get('url')
+
+    if not target:
+        return jsonify({'error': 'Vui lòng cung cấp IP hoặc URL của ESP32-CAM'}), 400
+
+    target = target.strip()
+    if not target.startswith('http://') and not target.startswith('https://'):
+        target = 'http://' + target
+
+    # Ensure target points to capture endpoint
+    if not target.endswith('/capture') and not target.endswith('/jpg') and not target.endswith('.jpg'):
+        target = target.rstrip('/') + '/capture'
+
+    try:
+        req = urllib.request.Request(target, headers={'User-Agent': 'TrashNet-Server/1.0'})
+        with urllib.request.urlopen(req, timeout=10.0) as resp:
+            image_data = resp.read()
+
+        if not image_data or len(image_data) < 100:
+            return jsonify({'error': 'Không nhận được dữ liệu ảnh từ ESP32-CAM'}), 502
+
+        image = Image.open(io.BytesIO(image_data))
+        raw_res = predict(image)
+        result = format_prediction_result(raw_res)
+
+        # Trích xuất nhãn và gửi lệnh sang ESP32 Actuator
+        best_label = result.get('fusion', {}).get('predicted_label') or result.get('resnet', {}).get('predicted_label') or result.get('class')
+        if best_label:
+            actuator_res = send_command_to_esp32_actuator(best_label, result.get('name_vi'))
+            if actuator_res:
+                result['actuator'] = actuator_res
+
+        # Include base64 of captured frame so UI can preview it
+        result['captured_image'] = 'data:image/jpeg;base64,' + base64.b64encode(image_data).decode('ascii')
+        return jsonify(result)
+    except urllib.error.URLError as e:
+        return jsonify({'error': f'Không thể kết nối đến ESP32-CAM ({target}): {e.reason}'}), 504
+    except Exception as e:
+        return jsonify({'error': f'Lỗi khi xử lý ảnh từ ESP32-CAM: {str(e)}'}), 500
+
+
+@app.route('/api/actuator/config', methods=['GET', 'POST'])
+def actuator_config():
+    """Get or update ESP32 Actuator configuration."""
+    global ENABLE_ESP32_ACTUATOR, ESP32_ACTUATOR_IP
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        if 'enabled' in data:
+            ENABLE_ESP32_ACTUATOR = bool(data['enabled'])
+        if 'ip' in data and data['ip'].strip():
+            ip = data['ip'].strip()
+            if not ip.startswith('http://') and not ip.startswith('https://'):
+                ip = 'http://' + ip
+            ESP32_ACTUATOR_IP = ip
+        return jsonify({
+            'status': 'ok',
+            'enabled': ENABLE_ESP32_ACTUATOR,
+            'ip': ESP32_ACTUATOR_IP
+        })
+    return jsonify({
+        'enabled': ENABLE_ESP32_ACTUATOR,
+        'ip': ESP32_ACTUATOR_IP,
+        'bins': BIN_MAPPING
+    })
+
+
+@app.route('/api/actuator/status', methods=['GET'])
+def actuator_status():
+    """Fetch status from ESP32 Actuator board."""
+    if not ENABLE_ESP32_ACTUATOR:
+        return jsonify({'online': False, 'enabled': False, 'message': 'Actuator disabled'})
+    try:
+        url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/status"
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0'})
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            data['enabled'] = True
+            data['ip'] = ESP32_ACTUATOR_IP
+            return jsonify(data)
+    except Exception as e:
+        return jsonify({
+            'online': False,
+            'enabled': True,
+            'ip': ESP32_ACTUATOR_IP,
+            'error': str(e)
+        })
+
+
+@app.route('/api/actuator/control', methods=['POST'])
+def actuator_control():
+    """Manually test bin rotation or servo lid from Web UI."""
+    data = request.get_json(silent=True) or {}
+    action = data.get('action')  # 'bin', 'servo', or 'rotate'
+    try:
+        if action == 'bin':
+            bin_num = int(data.get('bin', 1))
+            name = data.get('name', '')
+            label = data.get('label', 'manual')
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/action?bin={bin_num}&label={label}&name={urllib.parse.quote(name)}"
+        elif action == 'servo':
+            angle = int(data.get('angle', 0))
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?angle={angle}"
+        elif action == 'rotate':
+            bin_num = int(data.get('bin', 1))
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/rotate?bin={bin_num}"
+        else:
+            return jsonify({'error': 'Hành động không hợp lệ'}), 400
+
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0'})
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            raw = resp.read().decode('utf-8')
+            return jsonify({'status': 'ok', 'response': json.loads(raw) if raw.startswith('{') else raw})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

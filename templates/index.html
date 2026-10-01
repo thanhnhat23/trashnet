@@ -94,78 +94,96 @@
                         <div class="col-12 col-lg-5 d-flex flex-column">
                             <div class="mono-card h-100 d-flex flex-column">
                                 <div class="mono-card-header d-flex align-items-center justify-content-between flex-shrink-0">
-                                    <span class="card-title">ĐẦU VÀO HÌNH ẢNH</span>
-                                    
-                                    <div class="mode-switcher" role="tablist">
-                                        <button class="mode-btn active" id="tabUploadBtn" onclick="switchMode('upload')">
-                                            <i class="fa-solid fa-cloud-arrow-up me-1"></i> Tải ảnh
-                                        </button>
-                                        <button class="mode-btn" id="tabWebcamBtn" onclick="switchMode('webcam')">
-                                            <i class="fa-solid fa-camera me-1"></i> Webcam
-                                        </button>
-                                    </div>
+                                    <span class="card-title text-success"><i class="fa-solid fa-satellite-dish me-2"></i> ESP32-CAM TRỰC TIẾP</span>
+                                    <span class="badge bg-zinc-800 text-zinc-300 font-mono border border-zinc-700" style="font-size: 0.72rem;">ESP-IDF v5.4</span>
                                 </div>
 
                                 <div class="mono-card-body flex-grow-1 d-flex flex-column justify-content-between">
-                                    <!-- Mode 1: Upload File & Paste -->
-                                    <div id="uploadView" class="view-panel">
-                                        <div class="mono-dropzone" id="dropzone">
-                                            <input type="file" id="fileInput" accept="image/*" class="d-none">
-                                            
-                                            <div id="dropzonePlaceholder" class="text-center py-4">
-                                                <i class="fa-solid fa-arrow-up-from-bracket fs-2 text-zinc-400 mb-3"></i>
-                                                <div class="fw-semibold text-white mb-1">Kéo thả ảnh hoặc nhấp để tải lên</div>
-                                                <div class="text-zinc-500 small mb-2">Hỗ trợ JPG, PNG, WEBP &bull; Nhận phím Ctrl+V</div>
-                                                <span class="badge border border-zinc-700 text-zinc-400 font-mono">DUNG LƯỢNG TỐI ĐA 16MB</span>
+                                    <!-- Source: ESP32-CAM (ESP-IDF) Stream -->
+                                    <div id="esp32View" class="view-panel">
+                                        <!-- Dual ESP32 Connection Bar (CAM & Thùng Rác) -->
+                                        <div class="esp-config-bar mb-2 p-2 border border-zinc rounded-1 bg-zinc-900">
+                                            <!-- Row 1: ESP32-CAM -->
+                                            <div class="d-flex gap-2 align-items-center mb-2">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-black border-zinc text-zinc-400 font-mono" style="font-size: 0.72rem; min-width: 95px;">
+                                                        <i class="fa-solid fa-camera me-1"></i> IP CAM
+                                                    </span>
+                                                    <input type="text" id="esp32IpInput" class="form-control bg-black border-zinc text-white font-mono" placeholder="http://172.16.3.132" value="http://172.16.3.132" style="font-size: 0.8rem;">
+                                                </div>
+                                                <button type="button" class="btn btn-white btn-sm text-nowrap" id="btnConnectEsp32" onclick="connectEsp32Cam()">
+                                                    <i class="fa-solid fa-plug me-1"></i> Nối CAM
+                                                </button>
                                             </div>
 
-                                            <div id="dropzonePreviewBox" class="d-none position-relative text-center w-100 p-2">
-                                                <img id="imagePreview" alt="Xem trước rác thải" class="img-preview">
-                                                <button type="button" class="btn btn-dark btn-remove-preview" onclick="removeImage(event)" title="Hủy ảnh">
-                                                    <i class="fa-solid fa-xmark"></i>
+                                            <!-- Row 2: ESP32 Thường (Actuator / Thùng Rác) -->
+                                            <div class="d-flex gap-2 align-items-center mb-2">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-black border-zinc text-zinc-400 font-mono" style="font-size: 0.72rem; min-width: 95px;">
+                                                        <i class="fa-solid fa-microchip me-1"></i> IP THÙNG
+                                                    </span>
+                                                    <input type="text" id="actuatorIpInputMain" class="form-control bg-black border-zinc text-white font-mono" placeholder="http://172.16.3.205" value="http://172.16.3.205" style="font-size: 0.8rem;">
+                                                </div>
+                                                <button type="button" class="btn btn-outline-mono btn-sm text-nowrap" id="btnConnectActuatorMain" onclick="connectActuatorFromMain()">
+                                                    <i class="fa-solid fa-bolt me-1"></i> Nối Thùng
                                                 </button>
+                                            </div>
+
+                                            <!-- Status Summary Bar -->
+                                            <div class="d-flex align-items-center justify-content-between pt-1 border-top border-zinc" style="font-size: 0.7rem;">
+                                                <span class="text-zinc-400 font-mono" id="esp32StatusText"><i class="fa-solid fa-circle-dot text-zinc-600 me-1"></i> CAM: Chưa kết nối</span>
+                                                <span class="text-zinc-400 font-mono" id="actuatorStatusTextMain"><i class="fa-solid fa-circle-check text-success me-1"></i> Thùng: 172.16.3.205</span>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <!-- Mode 2: Webcam Stream (Permanently Mirrored - Discord Style) -->
-                                    <div id="webcamView" class="view-panel d-none">
-                                        <div class="webcam-box position-relative">
-                                            <!-- Video permanently mirrored via CSS -->
-                                            <video id="webcamVideo" autoplay playsinline muted class="w-100 h-100 object-fit-cover"></video>
-                                            <canvas id="webcamCanvas" class="d-none"></canvas>
+                                        <div class="webcam-box position-relative" style="background: #000; min-height: 280px;">
+                                            <img id="esp32StreamImg" alt="ESP32-CAM Stream" class="w-100 h-100 object-fit-contain d-none" crossorigin="anonymous">
+                                            <canvas id="esp32Canvas" class="d-none"></canvas>
 
-                                            <div id="webcamOffOverlay" class="webcam-off-overlay d-flex flex-column align-items-center justify-content-center text-center p-4">
-                                                <i class="fa-solid fa-video-slash fs-2 text-zinc-500 mb-2"></i>
-                                                <div class="text-zinc-400 small mb-3">Camera đang tắt</div>
-                                                <button class="btn btn-white btn-sm" onclick="startWebcam()">
-                                                    <i class="fa-solid fa-power-off me-1"></i> Bật Camera
+                                            <div id="esp32OffOverlay" class="webcam-off-overlay d-flex flex-column align-items-center justify-content-center text-center p-4">
+                                                <i class="fa-solid fa-satellite-dish fs-2 text-zinc-500 mb-2"></i>
+                                                <div class="text-zinc-300 fw-semibold small mb-1">ESP32-CAM (Firmware ESP-IDF)</div>
+                                                <div class="text-zinc-500 small mb-3" style="max-width: 280px;">
+                                                    Nhấn Kết nối để mở luồng video trực tiếp từ bo mạch ESP32-CAM (192.168.1.9).
+                                                </div>
+                                                <button class="btn btn-white btn-sm" onclick="connectEsp32Cam()">
+                                                    <i class="fa-solid fa-bolt me-1"></i> Mở Camera ESP32
                                                 </button>
                                             </div>
 
-                                            <div id="webcamHud" class="webcam-hud d-none">
+                                            <div id="esp32Hud" class="webcam-hud d-none">
                                                 <div class="hud-corner tl"></div>
                                                 <div class="hud-corner tr"></div>
                                                 <div class="hud-corner bl"></div>
                                                 <div class="hud-corner br"></div>
+                                                <div class="webcam-badge position-absolute top-0 start-0 m-3 px-2 py-1 small font-mono bg-dark text-white border border-zinc-700 rounded-1" style="font-size: 0.7rem;">
+                                                    <span class="status-indicator-active d-inline-block me-1" style="width: 6px; height: 6px; background: #22c55e;"></span> ESP32-CAM LIVE
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div id="webcamActionGroup" class="d-none mt-3 d-flex gap-2">
-                                            <button type="button" class="btn btn-outline-mono" onclick="stopWebcam()">
-                                                <i class="fa-solid fa-stop me-1"></i> Dừng
-                                            </button>
-                                            <button type="button" class="btn btn-white flex-grow-1" id="btnSnap" onclick="captureWebcam()">
-                                                <i class="fa-solid fa-camera me-1"></i> Chụp & Nhận diện
-                                            </button>
+                                        <div id="esp32ActionGroup" class="mt-3 d-flex flex-column gap-2">
+                                            <div class="d-flex gap-2">
+                                                <button type="button" class="btn btn-outline-mono btn-sm" onclick="disconnectEsp32()" title="Ngắt kết nối">
+                                                    <i class="fa-solid fa-stop me-1"></i> Tắt
+                                                </button>
+                                                <button type="button" class="btn btn-outline-mono btn-sm" id="btnToggleFlash" onclick="toggleEsp32Flash()" title="Bật/Tắt Flash LED trên ESP32">
+                                                    <i class="fa-solid fa-lightbulb"></i> Flash
+                                                </button>
+                                                <button type="button" class="btn btn-white flex-grow-1" id="btnSnapEsp32" onclick="captureEsp32Cam()">
+                                                    <i class="fa-solid fa-camera-retro me-1"></i> Chụp & Nhận diện
+                                                </button>
+                                            </div>
+                                            <div class="d-flex align-items-center justify-content-between p-2 rounded-1 border border-zinc bg-zinc-900">
+                                                <div class="small text-zinc-400 d-flex align-items-center gap-2">
+                                                    <i class="fa-solid fa-arrows-rotate text-zinc-500"></i>
+                                                    <span>Tự động quét (Auto-Scan):</span>
+                                                </div>
+                                                <div class="form-check form-switch mb-0">
+                                                    <input class="form-check-input" type="checkbox" id="esp32AutoScanCheck" onchange="toggleEsp32AutoScan(this.checked)">
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    <!-- Submit Button for Upload Mode -->
-                                    <div id="uploadActionGroup" class="mt-3">
-                                        <button type="button" class="btn btn-white w-100 py-2 fw-semibold" id="btnSubmit" onclick="runAnalysis()" disabled>
-                                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i> PHÂN TÍCH LATE FUSION
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -187,7 +205,7 @@
                                     <div id="emptyState" class="text-center py-5">
                                         <i class="fa-solid fa-layer-group text-zinc-600 display-5 mb-3"></i>
                                         <h5 class="fw-semibold text-white mb-1">Chưa có kết quả phân loại</h5>
-                                        <p class="text-zinc-500 small mb-0">Tải ảnh lên hoặc chụp từ webcam để hệ thống nhận diện loại rác thải.</p>
+                                        <p class="text-zinc-500 small mb-0">Đưa rác trước Webcam hoặc Camera ESP32 để hệ thống nhận diện loại rác tức thời.</p>
                                     </div>
 
                                     <!-- Active Result State -->
@@ -245,6 +263,83 @@
                                             <p class="text-zinc-400 small mb-0" id="resTipsContent">
                                                 --
                                             </p>
+                                        <!-- ESP32 ACTUATOR REALTIME HARDWARE VISUALIZATION -->
+                                        <div class="actuator-box p-3 mb-3 border border-zinc rounded-1 bg-black">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="fa-solid fa-microchip text-success"></i>
+                                                    <span class="fw-bold text-white small font-mono">CƠ CẤU CHẤP HÀNH (ESP32 ACTUATOR)</span>
+                                                </div>
+                                                <span class="badge font-mono small border border-zinc text-zinc-300" id="actuatorStatusBadge">
+                                                    <span class="status-dot online"></span> TRỰC TUYẾN
+                                                </span>
+                                            </div>
+
+                                            <!-- Màn hình ảo LCD 1602A I2C (Address 0x3F) -->
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <span class="font-mono text-zinc-400 small" style="font-size: 0.7rem;">MÀN HÌNH LCD 1602A (I2C: 0x3F)</span>
+                                                    <span class="font-mono text-zinc-500 small" style="font-size: 0.65rem;">HARDWARE LIVE SIMULATION</span>
+                                                </div>
+                                                <div class="virtual-lcd p-2 rounded-1">
+                                                    <div class="lcd-line" id="lcdLine1">THUNG RAC 4 NGAN</div>
+                                                    <div class="lcd-line" id="lcdLine2">SAN SANG CHO RAC</div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Cơ cấu 4 Ngăn Động cơ bước + Servo Mở nắp 180° -->
+                                            <div class="row g-2">
+                                                <!-- 4 Ngăn thùng rác xoay -->
+                                                <div class="col-8">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="font-mono text-zinc-400 small" style="font-size: 0.7rem;">ĐỘNG CƠ BƯỚC 28BYJ-48 (XOAY 4 HƯỚNG)</span>
+                                                        <span class="font-mono text-zinc-300 small fw-bold" id="stepperAngleDisplay">90°</span>
+                                                    </div>
+                                                    <div class="row g-1 text-center" id="binVisualGrid">
+                                                        <div class="col-3">
+                                                            <div class="bin-card p-1 border rounded-1" id="binCard1" data-bin="1" onclick="triggerManualBin(1, 'Rac HUU CO')">
+                                                                <div class="bin-num font-mono small">N.1</div>
+                                                                <div class="bin-name text-truncate">Hữu Cơ</div>
+                                                                <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">0°</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-3">
+                                                            <div class="bin-card p-1 border rounded-1 active" id="binCard2" data-bin="2" onclick="triggerManualBin(2, 'Rac TAI CHE')">
+                                                                <div class="bin-num font-mono small">N.2</div>
+                                                                <div class="bin-name text-truncate">Tái Chế</div>
+                                                                <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">90°</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-3">
+                                                            <div class="bin-card p-1 border rounded-1" id="binCard3" data-bin="3" onclick="triggerManualBin(3, 'Rac VO CO')">
+                                                                <div class="bin-num font-mono small">N.3</div>
+                                                                <div class="bin-name text-truncate">Vô Cơ</div>
+                                                                <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">180°</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-3">
+                                                            <div class="bin-card p-1 border rounded-1" id="binCard4" data-bin="4" onclick="triggerManualBin(4, 'Rac NGUY HIEM')">
+                                                                <div class="bin-num font-mono small">N.4</div>
+                                                                <div class="bin-name text-truncate">Nguy Hại</div>
+                                                                <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">270°</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Servo mở nắp 180° -->
+                                                <div class="col-4">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="font-mono text-zinc-400 small" style="font-size: 0.7rem;">SERVO NẮP MG995</span>
+                                                        <span class="font-mono text-zinc-300 small fw-bold" id="servoAngleDisplay">180°</span>
+                                                    </div>
+                                                    <div class="servo-lid-card p-2 border border-zinc rounded-1 text-center bg-zinc-900 h-100 d-flex flex-column justify-content-center" id="servoLidCard">
+                                                        <i class="fa-solid fa-door-open fs-4 text-warning mb-1" id="servoLidIcon"></i>
+                                                        <div class="small font-mono fw-bold text-white" id="servoLidText">MỞ NẮP 180°</div>
+                                                        <div class="text-zinc-500 font-mono" style="font-size: 0.62rem;" id="servoSubText">Đang thả rác (2s)</div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <!-- Probability Table -->
@@ -303,6 +398,23 @@
                         </div>
                         <div class="mono-card-body flex-grow-1 overflow-y-auto">
                             
+                            <!-- ESP32 Actuator Connection Bar -->
+                            <div class="esp-config-bar mb-3 p-2 border border-zinc rounded-1 bg-zinc-900">
+                                <div class="d-flex gap-2 align-items-center">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-black border-zinc text-zinc-400 font-mono" style="font-size: 0.72rem;">IP ESP32 ACTUATOR</span>
+                                        <input type="text" id="actuatorIpInput" class="form-control bg-black border-zinc text-white font-mono" placeholder="http://192.168.1.10" value="http://192.168.1.10" style="font-size: 0.8rem;">
+                                    </div>
+                                    <button type="button" class="btn btn-white btn-sm text-nowrap" id="btnConnectActuator" onclick="connectActuator()">
+                                        <i class="fa-solid fa-plug me-1"></i> Kết nối
+                                    </button>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top border-zinc" style="font-size: 0.7rem;">
+                                    <span class="text-zinc-400 font-mono" id="actuatorConnectionStatus"><i class="fa-solid fa-circle-dot text-zinc-600 me-1"></i> Sẵn sàng kết nối (http://192.168.1.10)</span>
+                                    <span class="text-zinc-500 font-mono">MG995: 180° | 28BYJ-48: 4 Ngăn | LCD: 1602A (0x3F)</span>
+                                </div>
+                            </div>
+
                             <!-- Mechanical Architecture Overview Banner -->
                             <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -317,29 +429,29 @@
                                     <div class="col-6 col-md-3">
                                         <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator1">
                                             <div class="text-zinc-500 small">BƯỚC 1</div>
-                                            <div class="text-white fw-bold mt-1">Khay Nền Đơn Sắc</div>
-                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Camera đỉnh chụp AI</div>
+                                            <div class="text-white fw-bold mt-1">Camera ESP32-CAM</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Chụp ảnh AI phân loại</div>
                                         </div>
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator2">
                                             <div class="text-zinc-500 small">BƯỚC 2</div>
-                                            <div class="text-white fw-bold mt-1">Mâm Xoay 4 Ngăn</div>
-                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Xoay góc 0°-270°</div>
+                                            <div class="text-white fw-bold mt-1">Động Cơ Bước 28BYJ-48</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Xoay mâm 4 hướng (0°-270°)</div>
                                         </div>
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator3">
                                             <div class="text-zinc-500 small">BƯỚC 3</div>
-                                            <div class="text-white fw-bold mt-1">Khay Lật Thả Rác</div>
-                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Servo mở 90° rồi đóng</div>
+                                            <div class="text-white fw-bold mt-1">Servo Nắp MG995</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Mở nắp 180° rồi đóng 0°</div>
                                         </div>
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <div class="p-2 border border-zinc bg-black rounded-1" id="stepIndicator4">
                                             <div class="text-zinc-500 small">BƯỚC 4</div>
-                                            <div class="text-white fw-bold mt-1">Cảm Biến Đỉnh Quét</div>
-                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Báo đầy khi rác chạm nóc</div>
+                                            <div class="text-white fw-bold mt-1">Màn Hình LCD 1602A</div>
+                                            <div class="text-zinc-400 small" style="font-size: 0.68rem;">Hiện loại rác & số ngăn</div>
                                         </div>
                                     </div>
                                 </div>
@@ -353,50 +465,50 @@
                                     <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
                                         <div class="fw-semibold text-white mb-2 d-flex align-items-center justify-content-between">
                                             <div class="d-flex align-items-center gap-2">
-                                                <i class="fa-solid fa-circle-notch text-zinc-400"></i> Động Cơ Xoay Mâm 4 Ngăn (Stepper / Servo 360°)
+                                                <i class="fa-solid fa-circle-notch text-zinc-400"></i> Động Cơ Xoay Mâm 4 Ngăn (28BYJ-48 + ULN2003)
                                             </div>
                                             <span class="badge border border-zinc text-zinc-400 font-mono small" id="carouselAngleBadge">GÓC HIỆN TẠI: 0°</span>
                                         </div>
-                                        <p class="small text-zinc-500 mb-2">Động cơ điều khiển mâm tròn xoay đúng ngăn rác cần hứng về vị trí dưới khay thả:</p>
+                                        <p class="small text-zinc-500 mb-2">Động cơ bước điều khiển mâm tròn xoay đúng ngăn rác cần hứng về vị trí dưới nắp thả:</p>
                                         <div class="d-grid gap-2">
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 1: Rác tái chế</span>
-                                                    <span class="text-zinc-500 small ms-1">(Plastic, Metal, Paper, Glass)</span>
+                                                    <span class="text-white fw-medium">Ngăn 1: Rác hữu cơ</span>
+                                                    <span class="text-zinc-500 small ms-1">(Organic / Biological / Thức ăn)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-400">Góc 0°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác tái chế')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác hữu cơ')">Xoay tới</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 2: Rác hữu cơ</span>
-                                                    <span class="text-zinc-500 small ms-1">(Organic / Biological / Food)</span>
+                                                    <span class="text-white fw-medium">Ngăn 2: Rác tái chế</span>
+                                                    <span class="text-zinc-500 small ms-1">(Plastic, Metal, Paper, Glass, Cardboard)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-300">Góc 90°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Rác hữu cơ')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Rác tái chế')">Xoay tới</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 3: Rác nguy hại</span>
-                                                    <span class="text-zinc-500 small ms-1">(Battery, Electronics)</span>
+                                                    <span class="text-white fw-medium">Ngăn 3: Rác vô cơ</span>
+                                                    <span class="text-zinc-500 small ms-1">(Trash / Non-recyclable / Vô cơ khác)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-300">Góc 180°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(180, 'Rác nguy hại')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(180, 'Rác vô cơ')">Xoay tới</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 4: Rác vô cơ</span>
-                                                    <span class="text-zinc-500 small ms-1">(Trash / Non-recyclable)</span>
+                                                    <span class="text-white fw-medium">Ngăn 4: Rác nguy hại</span>
+                                                    <span class="text-zinc-500 small ms-1">(Battery, Electronics / Pin & Ắc quy)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-300">Góc 270°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Rác vô cơ')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Rác nguy hại')">Xoay tới</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -406,17 +518,17 @@
                                     <div class="p-3 border border-zinc bg-zinc-900 rounded-1">
                                         <div class="fw-semibold text-white mb-2 d-flex align-items-center justify-content-between">
                                             <div class="d-flex align-items-center gap-2">
-                                                <i class="fa-solid fa-door-open text-zinc-400"></i> Khay Lật Thả Rác (Drop Trapdoor Servo)
+                                                <i class="fa-solid fa-door-open text-zinc-400"></i> Nắp Mở Thùng Rác (Servo MG995 180°)
                                             </div>
                                             <span class="badge border border-zinc text-zinc-400 font-mono small" id="trapdoorStatusBadge">TRẠNG THÁI: ĐÓNG (0°)</span>
                                         </div>
-                                        <p class="small text-zinc-500 mb-2">Giữ rác trên bề mặt đơn sắc để camera nhận diện, sau đó lật nghiêng để rác rơi tự do xuống ngăn rác:</p>
+                                        <p class="small text-zinc-500 mb-2">Điều khiển động cơ Servo MG995 mở nắp góc 180° để rác rơi vào ngăn, sau đó đóng lại 0°:</p>
                                         <div class="d-flex gap-2">
                                             <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(true)">
-                                                <i class="fa-solid fa-arrow-down me-1"></i> Mở khay (Thả rác - 90°)
+                                                <i class="fa-solid fa-door-open me-1"></i> Mở nắp (Thả rác - 180°)
                                             </button>
                                             <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(false)">
-                                                <i class="fa-solid fa-lock me-1"></i> Đóng khay (Nhận diện - 0°)
+                                                <i class="fa-solid fa-lock me-1"></i> Đóng nắp (An toàn - 0°)
                                             </button>
                                         </div>
                                     </div>
@@ -609,6 +721,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Main JS -->
-    <script src="/static/js/main.js?v=5.6"></script>
+    <script src="/static/js/main.js?v=6.0"></script>
 </body>
 </html>

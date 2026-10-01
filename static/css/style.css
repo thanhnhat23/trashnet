@@ -455,3 +455,87 @@ body.app-body {
 ::-webkit-scrollbar-thumb:hover {
     background: #3f3f46;
 }
+
+/* ============================================================
+   ESP32 ACTUATOR (SERVO + STEPPER + VIRTUAL LCD 1602A) STYLES
+   ============================================================ */
+.virtual-lcd {
+    background: #001224;
+    border: 2px solid #005080;
+    box-shadow: inset 0 0 12px rgba(0, 180, 255, 0.25), 0 0 10px rgba(0, 100, 200, 0.2);
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    letter-spacing: 2px;
+    color: #00f0ff;
+    text-shadow: 0 0 5px rgba(0, 240, 255, 0.7);
+    padding: 8px 12px;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.virtual-lcd .lcd-line {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bin-card {
+    background: #0a0a0f;
+    border-color: #27272a;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.bin-card .bin-num {
+    color: #a1a1aa;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.bin-card .bin-name {
+    font-size: 0.75rem;
+    color: #e4e4e7;
+    font-weight: 600;
+}
+
+.bin-card.active {
+    border-color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.12) !important;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.bin-card.active .bin-num {
+    color: #60a5fa;
+}
+
+.bin-card.active .bin-name {
+    color: #ffffff;
+}
+
+.servo-lid-card {
+    transition: all 0.25s ease;
+}
+
+.servo-lid-card.lid-open {
+    border-color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.12) !important;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+
+.status-dot.online {
+    background: #22c55e;
+    box-shadow: 0 0 6px #22c55e;
+}
+
+.status-dot.offline {
+    background: #ef4444;
+}
