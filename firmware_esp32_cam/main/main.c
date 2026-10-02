@@ -99,9 +99,9 @@ static esp_err_t init_camera(void)
     config.xclk_freq_hz = 20000000;
     config.pixel_format = PIXFORMAT_JPEG;
 
-    // Phân giải VGA 640x480: Chuẩn tỉ lệ, rõ nét và nhẹ cho AI
-    config.frame_size   = FRAMESIZE_VGA;
-    config.jpeg_quality = 12;
+    // Phân giải QVGA 320x240: Tối ưu siêu mượt, giảm độ trễ tối đa, khớp hoàn hảo kích thước 224x224 của AI
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.jpeg_quality = 14;
     config.fb_count     = 2;
     config.grab_mode    = CAMERA_GRAB_LATEST;
 
@@ -234,7 +234,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
         fb = NULL;
 
         if (res != ESP_OK) break;
-        vTaskDelay(pdMS_TO_TICKS(35));
+        vTaskDelay(pdMS_TO_TICKS(15)); // 15ms delay cho tốc độ khung hình mượt mà (~20-25 FPS)
     }
     return res;
 }
