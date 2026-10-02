@@ -125,6 +125,103 @@ WASTE_META = {
         'tips': 'Bao gồm túi nilon bẩn, khăn ướt, tã lót, rác sinh hoạt tổng hợp không tái chế được. Cần buộc chặt túi để đưa đi xử lý hợp vệ sinh.'
     }
 }
+# ==============================================================================
+# BẢNG QUY HOẠCH 4 NGĂN RÁC CHUẨN XÁC CHO ĐỘNG CƠ BƯỚC + SERVO 180° + LCD 1602
+# ==============================================================================
+BIN_MAPPING = {
+    # 1. Ngăn 1: Rác Cháy Được (burnable) - Góc 0°
+    'burnable': {
+        'bin': 1,
+        'bin_name': 'Rác Cháy Được (Hữu cơ & Giấy)',
+        'lcd_title': 'Rac Chay Duoc',
+        'angle': 0,
+        'color': '#22c55e',
+        'icon': 'fa-solid fa-fire'
+    },
+
+    # 2. Ngăn 2: Chai Lọ Thủy Tinh (glass) - Góc 90°
+    'glass': {
+        'bin': 2,
+        'bin_name': 'Rác Thủy Tinh (Chai lọ)',
+        'lcd_title': 'Chai Thuy Tinh',
+        'angle': 90,
+        'color': '#06b6d4',
+        'icon': 'fa-solid fa-wine-glass-empty'
+    },
+
+    # 3. Ngăn 3: Kim Loại & Vỏ Lon (metal) - Góc 180°
+    'metal': {
+        'bin': 3,
+        'bin_name': 'Rác Kim Loại (Vỏ lon)',
+        'lcd_title': 'Vo Lon Kim Loai',
+        'angle': 180,
+        'color': '#f59e0b',
+        'icon': 'fa-solid fa-cube'
+    },
+
+    # 4. Ngăn 4: Nhựa & Chai PET (plastic) - Góc 270°
+    'plastic': {
+        'bin': 4,
+        'bin_name': 'Rác Nhựa (Chai PET)',
+        'lcd_title': 'Chai Nhua (PET)',
+        'angle': 270,
+        'color': '#10b981',
+        'icon': 'fa-solid fa-bottle-water'
+    },
+
+    # Lớp ánh xạ dự phòng:
+    'biological': {
+        'bin': 1,
+        'bin_name': 'Rác Hữu Cơ Sinh Hoạt',
+        'lcd_title': 'Huu Co (Do an)',
+        'angle': 0,
+        'color': '#22c55e',
+        'icon': 'fa-solid fa-apple-whole'
+    },
+    'cardboard': {
+        'bin': 1,
+        'bin_name': 'Rác Cháy Được (Bìa Carton)',
+        'lcd_title': 'Bia Carton',
+        'angle': 0,
+        'color': '#3b82f6',
+        'icon': 'fa-solid fa-box-open'
+    },
+    'paper': {
+        'bin': 1,
+        'bin_name': 'Rác Cháy Được (Giấy báo)',
+        'lcd_title': 'Giay Bao / Tap',
+        'angle': 0,
+        'color': '#60a5fa',
+        'icon': 'fa-solid fa-newspaper'
+    },
+    'trash': {
+        'bin': 1,
+        'bin_name': 'Rác Vô Cơ Sinh Hoạt',
+        'lcd_title': 'Rac Vo Co Khac',
+        'angle': 0,
+        'color': '#94a3b8',
+        'icon': 'fa-solid fa-trash-can'
+    },
+    'battery': {
+        'bin': 3,
+        'bin_name': 'Rác Thải Nguy Hại',
+        'lcd_title': 'Pin / Ac Quy',
+        'angle': 180,
+        'color': '#ef4444',
+        'icon': 'fa-solid fa-car-battery'
+    }
+}
+
+def get_bin_info_for_label(label):
+    lbl = (label or '').strip().lower()
+    return BIN_MAPPING.get(lbl, {
+        'bin': 1,
+        'bin_name': 'Rác Cháy Được (Mặc định)',
+        'lcd_title': 'Rac Chay Duoc',
+        'angle': 0,
+        'color': '#22c55e',
+        'icon': 'fa-solid fa-fire'
+    })
 
 def format_prediction_result(raw_result):
     """
@@ -157,14 +254,18 @@ def format_prediction_result(raw_result):
     resnet_meta = WASTE_META.get(resnet_pred, {})
     yolo_meta = WASTE_META.get(yolo_pred, {})
 
+    bin_info = get_bin_info_for_label(top_class)
+
     return {
         "class": top_class,
         "name_vi": top_meta.get("name_vi", top_class),
         "category": top_meta.get("category", "Chưa xác định"),
         "badge_color": top_meta.get("badge_color", "#10b981"),
         "badge_bg": top_meta.get("badge_bg", "rgba(16, 185, 129, 0.15)"),
-        "bin": top_meta.get("bin", "Thùng rác thông thường"),
-        "bin_color": top_meta.get("bin_color", "#10b981"),
+        "bin": f"Ngăn {bin_info['bin']}: {bin_info['bin_name']}",
+        "bin_number": bin_info["bin"],
+        "bin_color": bin_info["color"],
+        "actuator": bin_info,
         "icon": top_meta.get("icon", "fa-solid fa-recycle"),
         "color": top_meta.get("color", "#10b981"),
         "tips": top_meta.get("tips", ""),
@@ -219,107 +320,10 @@ import urllib.error
 import urllib.parse
 import threading
 
-# ==============================================================================
 # CẤU HÌNH GỬI TÍN HIỆU ĐIỀU KHIỂN SANG ESP32 ACTUATOR (SERVO 180° + STEPPER 4 HƯỚNG + LCD 1602A)
 # ==============================================================================
 ENABLE_ESP32_ACTUATOR = True  # Kích hoạt điều khiển ESP32 Thường
 ESP32_ACTUATOR_IP = "http://172.16.3.205"  # IP thực tế của ESP32 Actuator tại cafe/wifi hiện tại
-
-# Bảng quy hoạch 4 Ngăn Rác chuẩn xác cho Động cơ bước + Servo 180° + Màn hình LCD 1602
-BIN_MAPPING = {
-    # 1. Ngăn 1: Rác Cháy Được / Hữu cơ (burnable, biological) - Góc 0°
-    'burnable': {
-        'bin': 1,
-        'bin_name': 'Rác Cháy Được (Hữu cơ / Giấy)',
-        'lcd_title': 'Rac Chay Duoc',
-        'angle': 0,
-        'color': '#22c55e',
-        'icon': 'fa-solid fa-fire'
-    },
-    'biological': {
-        'bin': 1,
-        'bin_name': 'Rác Hữu Cơ Sinh Hoạt',
-        'lcd_title': 'Huu Co (Do an)',
-        'angle': 0,
-        'color': '#22c55e',
-        'icon': 'fa-solid fa-apple-whole'
-    },
-    'cardboard': {
-        'bin': 1,
-        'bin_name': 'Rác Cháy Được (Bìa Carton)',
-        'lcd_title': 'Bia Carton',
-        'angle': 0,
-        'color': '#3b82f6',
-        'icon': 'fa-solid fa-box-open'
-    },
-    'paper': {
-        'bin': 1,
-        'bin_name': 'Rác Cháy Được (Giấy báo)',
-        'lcd_title': 'Giay Bao / Tap',
-        'angle': 0,
-        'color': '#60a5fa',
-        'icon': 'fa-solid fa-newspaper'
-    },
-
-    # 2. Ngăn 2: Chai Lọ Thủy Tinh (glass) - Góc 90°
-    'glass': {
-        'bin': 2,
-        'bin_name': 'Rác Tái Chế (Thủy tinh)',
-        'lcd_title': 'Chai Thuy Tinh',
-        'angle': 90,
-        'color': '#06b6d4',
-        'icon': 'fa-solid fa-wine-glass-empty'
-    },
-
-    # 3. Ngăn 3: Kim Loại & Vỏ Lon (metal) - Góc 180°
-    'metal': {
-        'bin': 3,
-        'bin_name': 'Rác Tái Chế (Kim loại)',
-        'lcd_title': 'Vo Lon Kim Loai',
-        'angle': 180,
-        'color': '#f59e0b',
-        'icon': 'fa-solid fa-cube'
-    },
-
-    # 4. Ngăn 4: Nhựa & Chai PET (plastic) - Góc 270°
-    'plastic': {
-        'bin': 4,
-        'bin_name': 'Rác Tái Chế (Nhựa & Chai PET)',
-        'lcd_title': 'Chai Nhua (PET)',
-        'angle': 270,
-        'color': '#10b981',
-        'icon': 'fa-solid fa-bottle-water'
-    },
-
-    # Dự phòng cho các loại rác phụ
-    'trash': {
-        'bin': 1,
-        'bin_name': 'Rác Vô Cơ Sinh Hoạt',
-        'lcd_title': 'Rac Vo Co Khac',
-        'angle': 0,
-        'color': '#94a3b8',
-        'icon': 'fa-solid fa-trash-can'
-    },
-    'battery': {
-        'bin': 3,
-        'bin_name': 'Rác Thải Nguy Hại',
-        'lcd_title': 'Pin / Ac Quy',
-        'angle': 180,
-        'color': '#ef4444',
-        'icon': 'fa-solid fa-car-battery'
-    }
-}
-
-def get_bin_info_for_label(label):
-    lbl = (label or '').strip().lower()
-    return BIN_MAPPING.get(lbl, {
-        'bin': 3,
-        'bin_name': 'Rác Vô Cơ (Mặc định)',
-        'lcd_title': 'Rac Vo Co Khac',
-        'angle': 180,
-        'color': '#94a3b8',
-        'icon': 'fa-solid fa-trash-can'
-    })
 
 def _dispatch_esp32_actuator_req(url):
     try:
@@ -390,11 +394,9 @@ def handle_predict():
         formatted = format_prediction_result(raw_res)
 
         # Trích xuất nhãn dự đoán tốt nhất và gửi tín hiệu sang ESP32 Actuator (4 ngăn + Servo 180° + LCD)
-        best_label = formatted.get('fusion', {}).get('predicted_label') or formatted.get('resnet', {}).get('predicted_label') or formatted.get('class')
+        best_label = formatted.get('class')
         if best_label:
-            actuator_res = send_command_to_esp32_actuator(best_label, formatted.get('name_vi'))
-            if actuator_res:
-                formatted['actuator'] = actuator_res
+            send_command_to_esp32_actuator(best_label, formatted.get('name_vi'))
 
         return jsonify(formatted)
     except Exception as e:
@@ -523,9 +525,9 @@ def actuator_status():
 def actuator_control():
     """Manually test bin rotation or servo lid from Web UI."""
     data = request.get_json(silent=True) or {}
-    action = data.get('action')  # 'bin', 'servo', or 'rotate'
+    action = data.get('action')  # 'bin', 'full', 'servo', or 'rotate'
     try:
-        if action == 'bin':
+        if action in ('bin', 'full'):
             bin_num = int(data.get('bin', 1))
             name = data.get('name', '')
             label = data.get('label', 'manual')

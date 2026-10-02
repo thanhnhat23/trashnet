@@ -265,10 +265,10 @@ static void mg995_set_angle(int angle) {
 // Xử lý chu trình phân loại hoàn chỉnh cho 1 ngăn rác
 static void process_bin_action(int bin_number, const char *display_name) {
     const char *trash_categories[4] = {
-        "HUU CO",      // Ngăn 1: Rác Hữu Cơ (biological)
-        "TAI CHE",     // Ngăn 2: Rác Tái Chế (cardboard, glass, metal, paper, plastic)
-        "VO CO",       // Ngăn 3: Rác Vô Cơ (trash)
-        "NGUY HAI"     // Ngăn 4: Rác Nguy Hại (battery)
+        "CHAY DUOC",   // Ngăn 1: Rác Cháy Được (burnable, biological)
+        "THUY TINH",   // Ngăn 2: Thủy Tinh (glass)
+        "KIM LOAI",    // Ngăn 3: Kim Loại (metal)
+        "NHUA (PET)"   // Ngăn 4: Nhựa & Chai PET (plastic)
     };
 
     if (bin_number < 1 || bin_number > 4) return;
