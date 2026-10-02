@@ -25,6 +25,17 @@ BASE_DIR = Path(__file__).resolve().parent
 
 # Waste category metadata with FontAwesome 6 icons and professional color schemes
 WASTE_META = {
+    'burnable': {
+        'name_vi': 'Rác cháy được (Hữu cơ & Giấy)',
+        'category': 'Rác cháy được',
+        'badge_color': '#22c55e',
+        'badge_bg': 'rgba(34, 197, 94, 0.15)',
+        'bin': 'Thùng rác hữu cơ / cháy được (Màu Xanh lá)',
+        'bin_color': '#16a34a',
+        'icon': 'fa-solid fa-fire',
+        'color': '#22c55e',
+        'tips': 'Bao gồm thức ăn thừa, cuống rau củ quả, giấy báo, bã hữu cơ dễ cháy hoặc phân hủy sinh học.'
+    },
     'battery': {
         'name_vi': 'Pin & Ắc quy',
         'category': 'Rác nguy hại',
@@ -216,7 +227,15 @@ ESP32_ACTUATOR_IP = "http://172.16.3.205"  # IP thực tế của ESP32 Actuator
 
 # Bảng quy hoạch 4 Ngăn Rác chuẩn xác cho Động cơ bước + Servo 180° + Màn hình LCD 1602
 BIN_MAPPING = {
-    # 1. Ngăn 1: Rác Hữu Cơ (biological: thức ăn thừa, rau củ, quả)
+    # 1. Ngăn 1: Rác Cháy Được / Hữu cơ (burnable, biological) - Góc 0°
+    'burnable': {
+        'bin': 1,
+        'bin_name': 'Rác Cháy Được (Hữu cơ / Giấy)',
+        'lcd_title': 'Rac Chay Duoc',
+        'angle': 0,
+        'color': '#22c55e',
+        'icon': 'fa-solid fa-fire'
+    },
     'biological': {
         'bin': 1,
         'bin_name': 'Rác Hữu Cơ Sinh Hoạt',
@@ -225,15 +244,24 @@ BIN_MAPPING = {
         'color': '#22c55e',
         'icon': 'fa-solid fa-apple-whole'
     },
-    # 2. Ngăn 2: Rác Tái Chế (cardboard, glass, metal, paper, plastic)
     'cardboard': {
-        'bin': 2,
-        'bin_name': 'Rác Tái Chế (Giấy bìa)',
+        'bin': 1,
+        'bin_name': 'Rác Cháy Được (Bìa Carton)',
         'lcd_title': 'Bia Carton',
-        'angle': 90,
+        'angle': 0,
         'color': '#3b82f6',
         'icon': 'fa-solid fa-box-open'
     },
+    'paper': {
+        'bin': 1,
+        'bin_name': 'Rác Cháy Được (Giấy báo)',
+        'lcd_title': 'Giay Bao / Tap',
+        'angle': 0,
+        'color': '#60a5fa',
+        'icon': 'fa-solid fa-newspaper'
+    },
+
+    # 2. Ngăn 2: Chai Lọ Thủy Tinh (glass) - Góc 90°
     'glass': {
         'bin': 2,
         'bin_name': 'Rác Tái Chế (Thủy tinh)',
@@ -242,45 +270,41 @@ BIN_MAPPING = {
         'color': '#06b6d4',
         'icon': 'fa-solid fa-wine-glass-empty'
     },
+
+    # 3. Ngăn 3: Kim Loại & Vỏ Lon (metal) - Góc 180°
     'metal': {
-        'bin': 2,
+        'bin': 3,
         'bin_name': 'Rác Tái Chế (Kim loại)',
         'lcd_title': 'Vo Lon Kim Loai',
-        'angle': 90,
+        'angle': 180,
         'color': '#f59e0b',
         'icon': 'fa-solid fa-cube'
     },
-    'paper': {
-        'bin': 2,
-        'bin_name': 'Rác Tái Chế (Giấy báo)',
-        'lcd_title': 'Giay Bao / Tap',
-        'angle': 90,
-        'color': '#60a5fa',
-        'icon': 'fa-solid fa-newspaper'
-    },
+
+    # 4. Ngăn 4: Nhựa & Chai PET (plastic) - Góc 270°
     'plastic': {
-        'bin': 2,
+        'bin': 4,
         'bin_name': 'Rác Tái Chế (Nhựa & Chai PET)',
         'lcd_title': 'Chai Nhua (PET)',
-        'angle': 90,
+        'angle': 270,
         'color': '#10b981',
         'icon': 'fa-solid fa-bottle-water'
     },
-    # 3. Ngăn 3: Rác Vô Cơ Khác (trash: túi nilon bẩn, rác thải không tái chế)
+
+    # Dự phòng cho các loại rác phụ
     'trash': {
-        'bin': 3,
+        'bin': 1,
         'bin_name': 'Rác Vô Cơ Sinh Hoạt',
         'lcd_title': 'Rac Vo Co Khac',
-        'angle': 180,
+        'angle': 0,
         'color': '#94a3b8',
         'icon': 'fa-solid fa-trash-can'
     },
-    # 4. Ngăn 4: Rác Nguy Hại (battery: pin, ắc quy, thiết bị điện tử)
     'battery': {
-        'bin': 4,
+        'bin': 3,
         'bin_name': 'Rác Thải Nguy Hại',
         'lcd_title': 'Pin / Ac Quy',
-        'angle': 270,
+        'angle': 180,
         'color': '#ef4444',
         'icon': 'fa-solid fa-car-battery'
     }

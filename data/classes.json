@@ -1,10 +1,6 @@
 {
-    "battery": 0,
-    "biological": 1,
-    "cardboard": 2,
-    "glass": 3,
-    "metal": 4,
-    "paper": 5,
-    "plastic": 6,
-    "trash": 7
+    "burnable": 0,
+    "glass": 1,
+    "metal": 2,
+    "plastic": 3
 }

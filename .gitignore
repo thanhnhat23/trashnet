@@ -39,6 +39,9 @@ luac.out
 *.hex
 *.pyc
 __pycache__/
+*.cache
+runs/
+weights/
 
 # ESP-IDF build & temporary files
 build/

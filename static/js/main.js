@@ -704,8 +704,8 @@ function updateActuatorHardwareUi(actuator, viName = '') {
     }
 
     // 1. Màn hình ảo LCD 1602A
-    const catMap = { 1: 'HUU CO', 2: 'TAI CHE', 3: 'VO CO', 4: 'NGUY HAI' };
-    const cat = catMap[actuator.bin] || 'VO CO';
+    const catMap = { 1: 'CHAY DUOC', 2: 'THUY TINH', 3: 'KIM LOAI', 4: 'NHUA PET' };
+    const cat = catMap[actuator.bin] || 'CHAY DUOC';
     if (lcdLine1) lcdLine1.textContent = `NGAN ${actuator.bin}: ${cat}`;
     if (lcdLine2) lcdLine2.textContent = `${actuator.lcd_title || ''}`;
 
@@ -935,15 +935,13 @@ function renderAnalyticsStats() {
         return;
     }
 
-    const recyclable = scanHistory.filter(i => (i.category || '').toLowerCase().includes('tái chế')).length;
-    const hazardous = scanHistory.filter(i => (i.category || '').toLowerCase().includes('nguy hại')).length;
-    const organic = scanHistory.filter(i => (i.category || '').toLowerCase().includes('hữu cơ')).length;
+    const burnable = scanHistory.filter(i => (i.category || '').toLowerCase().includes('cháy') || (i.category || '').toLowerCase().includes('hữu cơ')).length;
+    const metalGlass = scanHistory.filter(i => (i.category || '').toLowerCase().includes('kim loại') || (i.category || '').toLowerCase().includes('thủy tinh')).length;
+    const plastic = scanHistory.filter(i => (i.category || '').toLowerCase().includes('nhựa')).length;
 
-    const recyclablePct = Math.round((recyclable / total) * 100);
-
-    if (statRecyclable) statRecyclable.textContent = `${recyclablePct}%`;
-    if (statHazardous) statHazardous.textContent = hazardous;
-    if (statOrganic) statOrganic.textContent = organic;
+    if (statRecyclable) statRecyclable.textContent = metalGlass;
+    if (statHazardous) statHazardous.textContent = plastic;
+    if (statOrganic) statOrganic.textContent = burnable;
 }
 
 // ============================================================

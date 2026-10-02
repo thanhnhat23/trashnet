@@ -8,8 +8,8 @@
 // Mỗi khi đổi mạng WiFi (ở nhà, quán cafe, lớp học, hoặc phát Hotspot 4G từ điện thoại),
 // bạn CHỈ CẦN SỬA DUY NHẤT 2 DÒNG DƯỚI ĐÂY trong file này:
 
-#define WIFI_SSID                 "TRAM 247 STUDY CAFE & WORKSPACE"
-#define WIFI_PASS                 "tramloveyou"
+#define WIFI_SSID                 "ITF Da Nang"
+#define WIFI_PASS                 "itfdanang"
 
 // Ghi đè tự động và tương thích với cả 2 firmware (không bị cảnh báo redefined)
 #ifdef CONFIG_ESP_WIFI_SSID

@@ -297,30 +297,30 @@
                                                     </div>
                                                     <div class="row g-1 text-center" id="binVisualGrid">
                                                         <div class="col-3">
-                                                            <div class="bin-card p-1 border rounded-1" id="binCard1" data-bin="1" onclick="triggerManualBin(1, 'Rac HUU CO')">
+                                                            <div class="bin-card p-1 border rounded-1" id="binCard1" data-bin="1" onclick="triggerManualBin(1, 'Rac CHAY DUOC')">
                                                                 <div class="bin-num font-mono small">N.1</div>
-                                                                <div class="bin-name text-truncate">Hữu Cơ</div>
+                                                                <div class="bin-name text-truncate">Cháy Được</div>
                                                                 <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">0°</div>
                                                             </div>
                                                         </div>
                                                         <div class="col-3">
-                                                            <div class="bin-card p-1 border rounded-1 active" id="binCard2" data-bin="2" onclick="triggerManualBin(2, 'Rac TAI CHE')">
+                                                            <div class="bin-card p-1 border rounded-1" id="binCard2" data-bin="2" onclick="triggerManualBin(2, 'Chai THUY TINH')">
                                                                 <div class="bin-num font-mono small">N.2</div>
-                                                                <div class="bin-name text-truncate">Tái Chế</div>
+                                                                <div class="bin-name text-truncate">Thủy Tinh</div>
                                                                 <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">90°</div>
                                                             </div>
                                                         </div>
                                                         <div class="col-3">
-                                                            <div class="bin-card p-1 border rounded-1" id="binCard3" data-bin="3" onclick="triggerManualBin(3, 'Rac VO CO')">
+                                                            <div class="bin-card p-1 border rounded-1" id="binCard3" data-bin="3" onclick="triggerManualBin(3, 'Vo lon KIM LOAI')">
                                                                 <div class="bin-num font-mono small">N.3</div>
-                                                                <div class="bin-name text-truncate">Vô Cơ</div>
+                                                                <div class="bin-name text-truncate">Kim Loại</div>
                                                                 <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">180°</div>
                                                             </div>
                                                         </div>
                                                         <div class="col-3">
-                                                            <div class="bin-card p-1 border rounded-1" id="binCard4" data-bin="4" onclick="triggerManualBin(4, 'Rac NGUY HIEM')">
+                                                            <div class="bin-card p-1 border rounded-1" id="binCard4" data-bin="4" onclick="triggerManualBin(4, 'Chai NHUA (PET)')">
                                                                 <div class="bin-num font-mono small">N.4</div>
-                                                                <div class="bin-name text-truncate">Nguy Hại</div>
+                                                                <div class="bin-name text-truncate">Nhựa (PET)</div>
                                                                 <div class="bin-deg font-mono text-zinc-500" style="font-size: 0.65rem;">270°</div>
                                                             </div>
                                                         </div>
@@ -345,7 +345,7 @@
                                         <!-- Probability Table -->
                                         <div class="border border-zinc">
                                             <div class="p-2 border-bottom border-zinc bg-zinc-900 d-flex justify-content-between align-items-center">
-                                                <span class="small font-mono text-zinc-400">PHÂN PHỐI XÁC SUẤT 8 LỚP (SOFT VOTING)</span>
+                                                <span class="small font-mono text-zinc-400">PHÂN PHỐI XÁC SUẤT 4 LỚP (SOFT VOTING)</span>
                                                 <span class="small font-mono text-zinc-500">% CONFIDENCE</span>
                                             </div>
                                             <div class="table-responsive">
@@ -473,42 +473,42 @@
                                         <div class="d-grid gap-2">
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 1: Rác hữu cơ</span>
-                                                    <span class="text-zinc-500 small ms-1">(Organic / Biological / Thức ăn)</span>
+                                                    <span class="text-white fw-medium">Ngăn 1: Rác cháy được</span>
+                                                    <span class="text-zinc-500 small ms-1">(Burnable / Hữu cơ & Giấy)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-400">Góc 0°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác hữu cơ')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác cháy được')">Xoay tới</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 2: Rác tái chế</span>
-                                                    <span class="text-zinc-500 small ms-1">(Plastic, Metal, Paper, Glass, Cardboard)</span>
+                                                    <span class="text-white fw-medium">Ngăn 2: Chai lọ thủy tinh</span>
+                                                    <span class="text-zinc-500 small ms-1">(Glass / Chai lọ & Mảnh vỡ)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-300">Góc 90°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Rác tái chế')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Thủy tinh')">Xoay tới</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 3: Rác vô cơ</span>
-                                                    <span class="text-zinc-500 small ms-1">(Trash / Non-recyclable / Vô cơ khác)</span>
+                                                    <span class="text-white fw-medium">Ngăn 3: Kim loại & vỏ lon</span>
+                                                    <span class="text-zinc-500 small ms-1">(Metal / Lon nhôm & Sắt)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-300">Góc 180°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(180, 'Rác vô cơ')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(180, 'Kim loại')">Xoay tới</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 4: Rác nguy hại</span>
-                                                    <span class="text-zinc-500 small ms-1">(Battery, Electronics / Pin & Ắc quy)</span>
+                                                    <span class="text-white fw-medium">Ngăn 4: Nhựa & chai PET</span>
+                                                    <span class="text-zinc-500 small ms-1">(Plastic / Chai nước & Hộp nhựa)</span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="font-mono text-zinc-300">Góc 270°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Rác nguy hại')">Xoay tới</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Nhựa PET')">Xoay tới</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -572,38 +572,38 @@
                                         <div class="d-grid gap-2">
                                             <div>
                                                 <div class="d-flex justify-content-between small font-mono mb-1">
-                                                    <span>Ngăn Tái Chế:</span>
-                                                    <span id="fillPctRecyclable">25% (Cách nóc 22cm)</span>
+                                                    <span>Ngăn 1: Cháy Được:</span>
+                                                    <span id="fillPctOrganic">35% (Cách nóc 20cm)</span>
                                                 </div>
                                                 <div class="mono-progress-bg">
-                                                    <div class="mono-progress-bar" id="fillBarRecyclable" style="width: 25%;"></div>
+                                                    <div class="mono-progress-bar" id="fillBarOrganic" style="width: 35%;"></div>
                                                 </div>
                                             </div>
                                             <div>
                                                 <div class="d-flex justify-content-between small font-mono mb-1">
-                                                    <span>Ngăn Hữu Cơ:</span>
-                                                    <span id="fillPctOrganic">40% (Cách nóc 18cm)</span>
+                                                    <span>Ngăn 2: Thủy Tinh:</span>
+                                                    <span id="fillPctRecyclable">20% (Cách nóc 24cm)</span>
                                                 </div>
                                                 <div class="mono-progress-bg">
-                                                    <div class="mono-progress-bar" id="fillBarOrganic" style="width: 40%;"></div>
+                                                    <div class="mono-progress-bar" id="fillBarRecyclable" style="width: 20%;"></div>
                                                 </div>
                                             </div>
                                             <div>
                                                 <div class="d-flex justify-content-between small font-mono mb-1">
-                                                    <span>Ngăn Nguy Hại:</span>
-                                                    <span id="fillPctHazardous">10% (Cách nóc 27cm)</span>
+                                                    <span>Ngăn 3: Kim Loại:</span>
+                                                    <span id="fillPctHazardous">15% (Cách nóc 25cm)</span>
                                                 </div>
                                                 <div class="mono-progress-bg">
-                                                    <div class="mono-progress-bar" id="fillBarHazardous" style="width: 10%;"></div>
+                                                    <div class="mono-progress-bar" id="fillBarHazardous" style="width: 15%;"></div>
                                                 </div>
                                             </div>
                                             <div>
                                                 <div class="d-flex justify-content-between small font-mono mb-1">
-                                                    <span>Ngăn Vô Cơ:</span>
-                                                    <span id="fillPctTrash">88% (Cách nóc 4cm - CẢNH BÁO)</span>
+                                                    <span>Ngăn 4: Nhựa (PET):</span>
+                                                    <span id="fillPctTrash">45% (Cách nóc 16cm)</span>
                                                 </div>
                                                 <div class="mono-progress-bg">
-                                                    <div class="mono-progress-bar" id="fillBarTrash" style="width: 88%;"></div>
+                                                    <div class="mono-progress-bar" id="fillBarTrash" style="width: 45%;"></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -664,20 +664,20 @@
                                 </div>
                                 <div class="col-md-3">
                                     <div class="metric-cell p-3 border border-zinc text-center">
-                                        <div class="small text-zinc-500 font-mono">TÁI CHẾ ĐƯỢC</div>
-                                        <div class="display-6 fw-bold text-white font-mono" id="statRecyclable">0%</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="metric-cell p-3 border border-zinc text-center">
-                                        <div class="small text-zinc-500 font-mono">RÁC NGUY HẠI</div>
-                                        <div class="display-6 fw-bold text-white font-mono" id="statHazardous">0</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="metric-cell p-3 border border-zinc text-center">
-                                        <div class="small text-zinc-500 font-mono">RÁC HỮU CƠ</div>
+                                        <div class="small text-zinc-500 font-mono">RÁC CHÁY ĐƯỢC</div>
                                         <div class="display-6 fw-bold text-white font-mono" id="statOrganic">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-cell p-3 border border-zinc text-center">
+                                        <div class="small text-zinc-500 font-mono">KIM LOẠI & THỦY TINH</div>
+                                        <div class="display-6 fw-bold text-white font-mono" id="statRecyclable">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-cell p-3 border border-zinc text-center">
+                                        <div class="small text-zinc-500 font-mono">NHỰA (PET)</div>
+                                        <div class="display-6 fw-bold text-white font-mono" id="statHazardous">0</div>
                                     </div>
                                 </div>
                             </div>
