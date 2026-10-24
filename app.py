@@ -334,6 +334,7 @@ DEFAULT_SETTINGS = {
     "esp32_cam_ip": "http://172.16.0.100",
     "auto_scan_interval_sec": 3,
     "rotate_time_90_ms": 950,
+    "rotate_time_90_rev_ms": 1010,
     "rotate_time_180_fwd_ms": 1850,
     "rotate_time_180_rev_ms": 1955,
     "dump_fwd_time_ms": 500,
@@ -615,7 +616,7 @@ def api_actuator_settings():
         
         # Cập nhật các trường cấu hình
         for key in ['enabled', 'actuator_ip', 'esp32_cam_ip', 'auto_scan_interval_sec',
-                    'rotate_time_90_ms', 'rotate_time_180_fwd_ms', 'rotate_time_180_rev_ms',
+                    'rotate_time_90_ms', 'rotate_time_90_rev_ms', 'rotate_time_180_fwd_ms', 'rotate_time_180_rev_ms',
                     'dump_fwd_time_ms', 'dump_rev_time_ms', 'dump_wait_ms', 'dump_inverted',
                     'dump_rest_angle', 'dump_target_angle']:
             if key in data:
@@ -636,6 +637,7 @@ def api_actuator_settings():
                 calib_url = (
                     f"{ESP32_ACTUATOR_IP.rstrip('/')}/calib?"
                     f"t90={int(current.get('rotate_time_90_ms', 950))}&"
+                    f"t90r={int(current.get('rotate_time_90_rev_ms', 1010))}&"
                     f"t180f={int(current.get('rotate_time_180_fwd_ms', 1850))}&"
                     f"t180r={int(current.get('rotate_time_180_rev_ms', 1955))}&"
                     f"dumpf={int(current.get('dump_fwd_time_ms', 500))}&"

@@ -842,13 +842,13 @@
                                         <i class="fa-solid fa-arrows-spin text-zinc-400 me-1"></i> 1. SERVO 360° XOAY MÂM (GPIO 18)
                                     </div>
                                     <div class="row g-3">
-                                        <!-- Thời gian quay 90 độ (Ngăn 2 & Ngăn 4) -->
-                                        <div class="col-12 col-md-4">
+                                        <!-- Thời gian quay 90 độ ĐI (Ngăn 2 & Ngăn 4) -->
+                                        <div class="col-12 col-md-3">
                                             <div class="p-2 border border-zinc rounded-1 bg-black h-100 d-flex flex-column justify-content-between">
                                                 <div>
                                                     <div class="d-flex align-items-center justify-content-between mb-1">
-                                                        <label class="small text-zinc-300 font-mono fw-bold mb-0">QUAY 90° (Ngăn 2 & 4)</label>
-                                                        <span class="badge border border-zinc text-zinc-400 font-mono" style="font-size: 0.65rem;">Góc vuông</span>
+                                                        <label class="small text-zinc-300 font-mono fw-bold mb-0">90°: QUAY ĐI</label>
+                                                        <span class="badge border border-zinc text-zinc-400 font-mono" style="font-size: 0.65rem;">Ngăn 2 & 4</span>
                                                     </div>
                                                     <div class="input-group input-group-sm mb-1">
                                                         <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('rotate_time_90_ms', -5)">-5ms</button>
@@ -857,16 +857,49 @@
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <button type="button" class="btn btn-outline-mono btn-xs w-100 font-mono mb-1" onclick="testActuatorCmd('bin2')">
-                                                        <i class="fa-solid fa-rotate-right me-1"></i> Test Ngăn 2 (90°)
-                                                    </button>
-                                                    <div class="text-zinc-500 font-mono" style="font-size: 0.65rem;">UART: <code>+</code> / <code>-</code></div>
+                                                    <div class="d-flex gap-1 mb-1">
+                                                        <button type="button" class="btn btn-outline-mono btn-xs w-50 font-mono" onclick="testActuatorCmd('rotate_2_fwd')" title="Quay thuận đi Ngăn 2 (+90°)">
+                                                            <i class="fa-solid fa-arrow-right me-1"></i> Đi N2
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-mono btn-xs w-50 font-mono" onclick="testActuatorCmd('rotate_4_fwd')" title="Quay nghịch đi Ngăn 4 (-90°)">
+                                                            <i class="fa-solid fa-arrow-left me-1"></i> Đi N4
+                                                        </button>
+                                                    </div>
+                                                    <div class="text-zinc-500 font-mono" style="font-size: 0.65rem;">UART: <code>+</code> / <code>-</code> | Test: <code>y</code> / <code>h</code></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Thời gian quay 90 độ VỀ HOME (Ngăn 2 & Ngăn 4) -->
+                                        <div class="col-12 col-md-3">
+                                            <div class="p-2 border border-primary rounded-1 bg-black h-100 d-flex flex-column justify-content-between">
+                                                <div>
+                                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                                        <label class="small text-primary font-mono fw-bold mb-0">90°: QUAY VỀ HOME</label>
+                                                        <span class="badge bg-primary text-white font-mono" style="font-size: 0.65rem;">Chống thiếu</span>
+                                                    </div>
+                                                    <div class="input-group input-group-sm mb-1">
+                                                        <button class="btn btn-outline-primary px-2" type="button" onclick="stepTiming('rotate_time_90_rev_ms', -5)">-5ms</button>
+                                                        <input type="number" id="cfg_rotate_time_90_rev_ms" class="form-control bg-zinc-900 border-primary text-center text-primary font-mono fw-bold" value="1010" step="5" min="50" max="5000">
+                                                        <button class="btn btn-outline-primary px-2" type="button" onclick="stepTiming('rotate_time_90_rev_ms', 5)">+5ms</button>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div class="d-flex gap-1 mb-1">
+                                                        <button type="button" class="btn btn-outline-primary btn-xs w-50 font-mono" onclick="testActuatorCmd('rotate_2_rev')" title="Quay nghịch về Home từ Ngăn 2">
+                                                            <i class="fa-solid fa-rotate-left me-1"></i> Về N2
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-primary btn-xs w-50 font-mono" onclick="testActuatorCmd('rotate_4_rev')" title="Quay thuận về Home từ Ngăn 4">
+                                                            <i class="fa-solid fa-rotate-right me-1"></i> Về N4
+                                                        </button>
+                                                    </div>
+                                                    <div class="text-zinc-500 font-mono" style="font-size: 0.65rem;">UART: <code>5</code> / <code>6</code> | Test: <code>u</code> / <code>j</code></div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- Thời gian quay 180 độ Đi (Ngăn 3) -->
-                                        <div class="col-12 col-md-4">
+                                        <div class="col-12 col-md-3">
                                             <div class="p-2 border border-warning rounded-1 bg-black h-100 d-flex flex-column justify-content-between">
                                                 <div>
                                                     <div class="d-flex align-items-center justify-content-between mb-1">
@@ -889,7 +922,7 @@
                                         </div>
 
                                         <!-- Thời gian quay 180 độ Về (Ngăn 3) -->
-                                        <div class="col-12 col-md-4">
+                                        <div class="col-12 col-md-3">
                                             <div class="p-2 border border-info rounded-1 bg-black h-100 d-flex flex-column justify-content-between">
                                                 <div>
                                                     <div class="d-flex align-items-center justify-content-between mb-1">

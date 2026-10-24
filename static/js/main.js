@@ -1126,6 +1126,7 @@ function populateSettingsUi(s) {
     };
 
     setVal('cfg_rotate_time_90_ms', s.rotate_time_90_ms);
+    setVal('cfg_rotate_time_90_rev_ms', s.rotate_time_90_rev_ms !== undefined ? s.rotate_time_90_rev_ms : 1010);
     setVal('cfg_rotate_time_180_fwd_ms', s.rotate_time_180_fwd_ms);
     setVal('cfg_rotate_time_180_rev_ms', s.rotate_time_180_rev_ms);
     setVal('cfg_dump_fwd_time_ms', s.dump_fwd_time_ms);
@@ -1195,6 +1196,7 @@ async function saveActuatorSettingsFromUi() {
     };
 
     currentActuatorSettings.rotate_time_90_ms = getVal('cfg_rotate_time_90_ms', 950);
+    currentActuatorSettings.rotate_time_90_rev_ms = getVal('cfg_rotate_time_90_rev_ms', 1010);
     currentActuatorSettings.rotate_time_180_fwd_ms = getVal('cfg_rotate_time_180_fwd_ms', 1850);
     currentActuatorSettings.rotate_time_180_rev_ms = getVal('cfg_rotate_time_180_rev_ms', 1955);
     currentActuatorSettings.dump_fwd_time_ms = getVal('cfg_dump_fwd_time_ms', 500);
@@ -1436,6 +1438,30 @@ async function testActuatorCmd(cmd) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'rotate_test', step: '3_rev' })
+        }).catch(e => console.warn(e));
+    } else if (cmd === 'rotate_2_fwd') {
+        fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rotate_test', step: '2_fwd' })
+        }).catch(e => console.warn(e));
+    } else if (cmd === 'rotate_2_rev') {
+        fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rotate_test', step: '2_rev' })
+        }).catch(e => console.warn(e));
+    } else if (cmd === 'rotate_4_fwd') {
+        fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rotate_test', step: '4_fwd' })
+        }).catch(e => console.warn(e));
+    } else if (cmd === 'rotate_4_rev') {
+        fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rotate_test', step: '4_rev' })
         }).catch(e => console.warn(e));
     }
 }

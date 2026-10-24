@@ -68,7 +68,8 @@ static int s_dump_wait_ms = 1500; // Thời gian giữ mở để rác trượt 
 #define SERVO_360_STOP_US 1500      // Xung dừng / phanh chủ động (us)
 
 // Thời gian quay chuẩn
-static int s_rotate_time_90_ms = 950;
+static int s_rotate_time_90_ms = 950;          // Thời gian quay đi 90 độ (Ngăn 2 thuận, Ngăn 4 nghịch)
+static int s_rotate_time_90_rev_ms = 1010;     // Thời gian quay về 90 độ (về lại Home sau khi hất rác)
 static int s_rotate_time_180_fwd_ms = 1850;
 static int s_rotate_time_180_rev_ms = 1955;
 
@@ -86,6 +87,7 @@ static void calib_save_to_nvs(void) {
   esp_err_t err = nvs_open("act_calib", NVS_READWRITE, &handle);
   if (err == ESP_OK) {
     nvs_set_i32(handle, "rot90", s_rotate_time_90_ms);
+    nvs_set_i32(handle, "rot90r", s_rotate_time_90_rev_ms);
     nvs_set_i32(handle, "rot180f", s_rotate_time_180_fwd_ms);
     nvs_set_i32(handle, "rot180r", s_rotate_time_180_rev_ms);
     nvs_set_i32(handle, "dumpf", s_dump_fwd_time_ms);
@@ -109,6 +111,7 @@ static void calib_load_from_nvs(void) {
     int32_t val;
     uint8_t u8val;
     if (nvs_get_i32(handle, "rot90", &val) == ESP_OK) s_rotate_time_90_ms = val;
+    if (nvs_get_i32(handle, "rot90r", &val) == ESP_OK) s_rotate_time_90_rev_ms = val;
     if (nvs_get_i32(handle, "rot180f", &val) == ESP_OK) s_rotate_time_180_fwd_ms = val;
     if (nvs_get_i32(handle, "rot180r", &val) == ESP_OK) s_rotate_time_180_rev_ms = val;
     if (nvs_get_i32(handle, "dumpf", &val) == ESP_OK) s_dump_fwd_time_ms = val;
@@ -128,14 +131,14 @@ static void calib_load_from_nvs(void) {
       s_dump_target_angle = 90;
     }
     nvs_close(handle);
-    ESP_LOGI(TAG, ">>> [NVS FLASH] Da tai thong so calib tu Flash NVS: rot90=%dms, 180f=%dms, 180r=%dms, dumpf=%dms, dumpr=%dms, dumpw=%dms, rest_ang=%d, tgt_ang=%d, inv=%d",
-             s_rotate_time_90_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
+    ESP_LOGI(TAG, ">>> [NVS FLASH] Da tai thong so calib tu Flash NVS: rot90_fwd=%dms, rot90_rev=%dms, 180f=%dms, 180r=%dms, dumpf=%dms, dumpr=%dms, dumpw=%dms, rest_ang=%d, tgt_ang=%d, inv=%d",
+             s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
              s_dump_fwd_time_ms, s_dump_rev_time_ms, s_dump_wait_ms, s_dump_rest_angle, s_dump_target_angle, s_dump_inverted ? 1 : 0);
   } else {
     s_dump_rest_angle = s_dump_inverted ? 180 : 0;
     s_dump_target_angle = 90;
-    ESP_LOGI(TAG, ">>> [NVS FLASH] Chua co thong so da luu, dung mac dinh: rot90=%dms, 180f=%dms, 180r=%dms",
-             s_rotate_time_90_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms);
+    ESP_LOGI(TAG, ">>> [NVS FLASH] Chua co thong so da luu, dung mac dinh: rot90_fwd=%dms, rot90_rev=%dms, 180f=%dms, 180r=%dms",
+             s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms);
   }
 }
 
@@ -148,7 +151,11 @@ typedef enum {
   CMD_SERVO_INVERT,   // Đảo chiều quay Servo 180
   CMD_SERVO_RAW_180,  // Quay Servo 180 theo hướng và thời gian ms
   CMD_ROTATE_3_FWD,   // Test chỉ quay đi Ngăn 3 (180 độ)
-  CMD_ROTATE_3_REV    // Test chỉ quay về Home từ Ngăn 3
+  CMD_ROTATE_3_REV,   // Test chỉ quay về Home từ Ngăn 3
+  CMD_ROTATE_2_FWD,   // Test chỉ quay đi Ngăn 2 (+90 độ)
+  CMD_ROTATE_2_REV,   // Test chỉ quay về Home từ Ngăn 2 (-90 độ)
+  CMD_ROTATE_4_FWD,   // Test chỉ quay đi Ngăn 4 (-90 độ)
+  CMD_ROTATE_4_REV    // Test chỉ quay về Home từ Ngăn 4 (+90 độ)
 } cmd_type_t;
 
 typedef struct {
@@ -607,7 +614,7 @@ static void process_bin_action(int bin_number, const char *display_name) {
   } else if (target_idx == 1) {
     dir = 1;
     duration_go = s_rotate_time_90_ms;
-    duration_ret = s_rotate_time_90_ms;
+    duration_ret = s_rotate_time_90_rev_ms;
   } else if (target_idx == 2) {
     dir = 1;
     duration_go = s_rotate_time_180_fwd_ms;
@@ -615,7 +622,7 @@ static void process_bin_action(int bin_number, const char *display_name) {
   } else if (target_idx == 3) {
     dir = -1;
     duration_go = s_rotate_time_90_ms;
-    duration_ret = s_rotate_time_90_ms;
+    duration_ret = s_rotate_time_90_rev_ms;
   }
 
   // 3. Servo 360 quay từ Home đến góc thùng rác tương ứng
@@ -695,6 +702,22 @@ static void actuator_worker_task(void *pvParameters) {
         case CMD_ROTATE_3_REV:
           ESP_LOGI(TAG, ">>> [WORKER] Test CHI QUAY VE Home tu Ngan 3 (%d ms)", s_rotate_time_180_rev_ms);
           servo_360_rotate_raw(-1, s_rotate_time_180_rev_ms);
+          break;
+        case CMD_ROTATE_2_FWD:
+          ESP_LOGI(TAG, ">>> [WORKER] Test CHI QUAY DI Ngan 2 (+90 do) (%d ms)", s_rotate_time_90_ms);
+          servo_360_rotate_raw(1, s_rotate_time_90_ms);
+          break;
+        case CMD_ROTATE_2_REV:
+          ESP_LOGI(TAG, ">>> [WORKER] Test CHI QUAY VE Home tu Ngan 2 (%d ms)", s_rotate_time_90_rev_ms);
+          servo_360_rotate_raw(-1, s_rotate_time_90_rev_ms);
+          break;
+        case CMD_ROTATE_4_FWD:
+          ESP_LOGI(TAG, ">>> [WORKER] Test CHI QUAY DI Ngan 4 (-90 do) (%d ms)", s_rotate_time_90_ms);
+          servo_360_rotate_raw(-1, s_rotate_time_90_ms);
+          break;
+        case CMD_ROTATE_4_REV:
+          ESP_LOGI(TAG, ">>> [WORKER] Test CHI QUAY VE Home tu Ngan 4 (%d ms)", s_rotate_time_90_rev_ms);
+          servo_360_rotate_raw(1, s_rotate_time_90_rev_ms);
           break;
         default:
           ESP_LOGW(TAG, ">>> [WORKER] Lenh khong xac dinh (cmd.type=%d)", cmd.type);
@@ -796,14 +819,14 @@ static esp_err_t http_status_handler(httpd_req_t *req) {
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Connection", "close");
 
-  char resp[380];
+  char resp[450];
   snprintf(resp, sizeof(resp),
            "{\"online\":true,\"current_bin\":%d,\"current_angle\":%d,\"servo_angle\":%d,"
-           "\"rotate_time_ms\":%d,\"rotate_90_ms\":%d,\"rotate_180_fwd_ms\":%d,\"rotate_180_rev_ms\":%d,"
+           "\"rotate_time_ms\":%d,\"rotate_90_ms\":%d,\"rotate_90_rev_ms\":%d,\"rotate_180_fwd_ms\":%d,\"rotate_180_rev_ms\":%d,"
            "\"dump_fwd_ms\":%d,\"dump_rev_ms\":%d,\"dump_wait_ms\":%d,\"inverted\":%s,"
            "\"rest_angle\":%d,\"dump_angle\":%d,\"is_busy\":%s,\"last_trash\":\"%s\"}",
            current_position + 1, current_position * 90, s_current_servo_angle,
-           s_rotate_time_90_ms, s_rotate_time_90_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
+           s_rotate_time_90_ms, s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
            s_dump_fwd_time_ms, s_dump_rev_time_ms, s_dump_wait_ms,
            s_dump_inverted ? "true" : "false", s_dump_rest_angle,
            s_dump_target_angle, s_is_busy ? "true" : "false",
@@ -811,7 +834,7 @@ static esp_err_t http_status_handler(httpd_req_t *req) {
   return httpd_resp_send(req, resp, strlen(resp));
 }
 
-// GET /calib?t90=950&t180f=1850&t180r=1955&dumpf=500&dumpr=500&dumpw=1500&inv=0
+// GET /calib?t90=950&t90r=1010&t180f=1850&t180r=1955&dumpf=500&dumpr=500&dumpw=1500&inv=0
 static esp_err_t http_calib_handler(httpd_req_t *req) {
   char query[256] = {0};
   if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
@@ -819,6 +842,11 @@ static esp_err_t http_calib_handler(httpd_req_t *req) {
     if (httpd_query_key_value(query, "t90", val, sizeof(val)) == ESP_OK) {
       int v = atoi(val);
       if (v >= 50 && v <= 10000) s_rotate_time_90_ms = v;
+    }
+    if (httpd_query_key_value(query, "t90r", val, sizeof(val)) == ESP_OK ||
+        httpd_query_key_value(query, "rot90r", val, sizeof(val)) == ESP_OK) {
+      int v = atoi(val);
+      if (v >= 50 && v <= 10000) s_rotate_time_90_rev_ms = v;
     }
     if (httpd_query_key_value(query, "t180f", val, sizeof(val)) == ESP_OK) {
       int v = atoi(val);
@@ -862,11 +890,11 @@ static esp_err_t http_calib_handler(httpd_req_t *req) {
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Connection", "close");
-  char resp[380];
+  char resp[450];
   snprintf(resp, sizeof(resp),
-           "{\"status\":\"ok\",\"rotate_90_ms\":%d,\"rotate_180_fwd_ms\":%d,\"rotate_180_rev_ms\":%d,"
+           "{\"status\":\"ok\",\"rotate_90_ms\":%d,\"rotate_90_rev_ms\":%d,\"rotate_180_fwd_ms\":%d,\"rotate_180_rev_ms\":%d,"
            "\"dump_fwd_ms\":%d,\"dump_rev_ms\":%d,\"dump_wait_ms\":%d,\"rest_angle\":%d,\"dump_angle\":%d,\"inverted\":%s}",
-           s_rotate_time_90_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
+           s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
            s_dump_fwd_time_ms, s_dump_rev_time_ms, s_dump_wait_ms,
            s_dump_rest_angle, s_dump_target_angle,
            s_dump_inverted ? "true" : "false");
@@ -947,7 +975,7 @@ static esp_err_t http_servo_handler(httpd_req_t *req) {
   return httpd_resp_send(req, resp, strlen(resp));
 }
 
-// GET /rotate?bin=1..4 hoặc ?test=3_fwd hoặc ?test=3_rev: Test quay BẤT ĐỒNG BỘ qua Queue
+// GET /rotate?bin=1..4 hoặc ?test=3_fwd / 3_rev / 2_fwd / 2_rev / 4_fwd / 4_rev: Test quay BẤT ĐỒNG BỘ qua Queue
 static esp_err_t http_rotate_handler(httpd_req_t *req) {
   char query[64] = {0};
   int bin = 1;
@@ -968,6 +996,34 @@ static esp_err_t http_rotate_handler(httpd_req_t *req) {
         bin_command_t cmd;
         memset(&cmd, 0, sizeof(cmd));
         cmd.type = CMD_ROTATE_3_REV;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+        handled = true;
+      } else if (strcmp(test_val, "2_fwd") == 0 || strcmp(test_val, "fwd90") == 0) {
+        ESP_LOGI(TAG, "[API /rotate] Queue Test CHI QUAY DI Ngan 2 (+90 do): %d ms", s_rotate_time_90_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_2_FWD;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+        handled = true;
+      } else if (strcmp(test_val, "2_rev") == 0 || strcmp(test_val, "rev90") == 0) {
+        ESP_LOGI(TAG, "[API /rotate] Queue Test CHI QUAY VE Home tu Ngan 2 (-90 do): %d ms", s_rotate_time_90_rev_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_2_REV;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+        handled = true;
+      } else if (strcmp(test_val, "4_fwd") == 0) {
+        ESP_LOGI(TAG, "[API /rotate] Queue Test CHI QUAY DI Ngan 4 (-90 do): %d ms", s_rotate_time_90_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_4_FWD;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+        handled = true;
+      } else if (strcmp(test_val, "4_rev") == 0) {
+        ESP_LOGI(TAG, "[API /rotate] Queue Test CHI QUAY VE Home tu Ngan 4 (+90 do): %d ms", s_rotate_time_90_rev_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_4_REV;
         xQueueSend(s_bin_cmd_queue, &cmd, 0);
         handled = true;
       }
@@ -994,10 +1050,10 @@ static esp_err_t http_rotate_handler(httpd_req_t *req) {
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Connection", "close");
-  char resp[128];
+  char resp[180];
   snprintf(resp, sizeof(resp), 
-           "{\"current_bin\":%d,\"status\":\"ok\",\"rotate_180_fwd_ms\":%d,\"rotate_180_rev_ms\":%d}",
-           bin, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms);
+           "{\"current_bin\":%d,\"status\":\"ok\",\"rotate_90_ms\":%d,\"rotate_90_rev_ms\":%d,\"rotate_180_fwd_ms\":%d,\"rotate_180_rev_ms\":%d}",
+           bin, s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms);
   return httpd_resp_send(req, resp, strlen(resp));
 }
 
@@ -1231,16 +1287,16 @@ void app_main(void) {
   ESP_LOGI(TAG, "  Phim 0        : TANG thoi gian QUAY VE Ngan 3 (+5 ms, Hien tai: %d ms)", s_rotate_time_180_rev_ms);
   ESP_LOGI(TAG,
            "-----------------------------------------------------------------");
-  ESP_LOGI(TAG, "CAC NGAN CON LAI (90 DO):");
+  ESP_LOGI(TAG, "CAC NGAN 90 DO (NGAN 2 VA NGAN 4) (±5ms, Tu dong luu Flash NVS):");
   ESP_LOGI(TAG, "  Phim 1, 2, 4  : Chay chu trinh Ngan 1 (Home), Ngan 2 (90 do), Ngan 4 (-90 do)");
-  ESP_LOGI(
-      TAG,
-      "  Phim + hoac = : TANG thoi gian quay 90 do (+5 ms, Hien tai: %d ms)",
-      s_rotate_time_90_ms);
-  ESP_LOGI(
-      TAG,
-      "  Phim - hoac _ : GIAM thoi gian quay 90 do (-5 ms, Hien tai: %d ms)",
-      s_rotate_time_90_ms);
+  ESP_LOGI(TAG, "  Phim + hoac = : TANG thoi gian QUAY DI 90 do (+5 ms, Hien tai: %d ms)", s_rotate_time_90_ms);
+  ESP_LOGI(TAG, "  Phim - hoac _ : GIAM thoi gian QUAY DI 90 do (-5 ms, Hien tai: %d ms)", s_rotate_time_90_ms);
+  ESP_LOGI(TAG, "  Phim 6        : TANG thoi gian QUAY VE 90 do (+5 ms, Hien tai: %d ms)", s_rotate_time_90_rev_ms);
+  ESP_LOGI(TAG, "  Phim 5        : GIAM thoi gian QUAY VE 90 do (-5 ms, Hien tai: %d ms)", s_rotate_time_90_rev_ms);
+  ESP_LOGI(TAG, "  Phim y hoac Y : TEST CHI QUAY DI Ngan 2 (+90 do, %d ms)", s_rotate_time_90_ms);
+  ESP_LOGI(TAG, "  Phim u hoac U : TEST CHI QUAY VE Ngan 2 (-90 do, %d ms)", s_rotate_time_90_rev_ms);
+  ESP_LOGI(TAG, "  Phim h hoac H : TEST CHI QUAY DI Ngan 4 (-90 do, %d ms)", s_rotate_time_90_ms);
+  ESP_LOGI(TAG, "  Phim j hoac J : TEST CHI QUAY VE Ngan 4 (+90 do, %d ms)", s_rotate_time_90_rev_ms);
   ESP_LOGI(TAG,
            "=================================================================");
 
@@ -1318,6 +1374,50 @@ void app_main(void) {
         bin_command_t cmd;
         memset(&cmd, 0, sizeof(cmd));
         cmd.type = CMD_ROTATE_3_REV;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+      }
+    } else if (c == 'y' || c == 'Y') {
+      // Test CHỈ QUAY ĐI Ngăn 2 (+90 độ)
+      if (s_is_busy) {
+        ESP_LOGW(TAG, "He thong dang ban thuc hien chu trinh, vui long doi...");
+      } else {
+        ESP_LOGI(TAG, "[SERIAL] Test CHI QUAY DI Ngan 2 (+90 do): %d ms", s_rotate_time_90_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_2_FWD;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+      }
+    } else if (c == 'u' || c == 'U') {
+      // Test CHỈ QUAY VỀ Home từ Ngăn 2 (-90 độ)
+      if (s_is_busy) {
+        ESP_LOGW(TAG, "He thong dang ban thuc hien chu trinh, vui long doi...");
+      } else {
+        ESP_LOGI(TAG, "[SERIAL] Test CHI QUAY VE Home tu Ngan 2 (-90 do): %d ms", s_rotate_time_90_rev_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_2_REV;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+      }
+    } else if (c == 'h' || c == 'H') {
+      // Test CHỈ QUAY ĐI Ngăn 4 (-90 độ)
+      if (s_is_busy) {
+        ESP_LOGW(TAG, "He thong dang ban thuc hien chu trinh, vui long doi...");
+      } else {
+        ESP_LOGI(TAG, "[SERIAL] Test CHI QUAY DI Ngan 4 (-90 do): %d ms", s_rotate_time_90_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_4_FWD;
+        xQueueSend(s_bin_cmd_queue, &cmd, 0);
+      }
+    } else if (c == 'j' || c == 'J') {
+      // Test CHỈ QUAY VỀ Home từ Ngăn 4 (+90 độ)
+      if (s_is_busy) {
+        ESP_LOGW(TAG, "He thong dang ban thuc hien chu trinh, vui long doi...");
+      } else {
+        ESP_LOGI(TAG, "[SERIAL] Test CHI QUAY VE Home tu Ngan 4 (+90 do): %d ms", s_rotate_time_90_rev_ms);
+        bin_command_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = CMD_ROTATE_4_REV;
         xQueueSend(s_bin_cmd_queue, &cmd, 0);
       }
     } else if (c == 't' || c == 'T') {
@@ -1426,7 +1526,7 @@ void app_main(void) {
       s_rotate_time_90_ms += 5;
       calib_save_to_nvs();
       ESP_LOGW(TAG,
-               ">>> [CALIB ±5ms 90 DO] TANG thoi gian quay: %d ms (Da luu Flash NVS)",
+               ">>> [CALIB ±5ms 90 DO QUAY DI] TANG thoi gian quay DI: %d ms (Da luu Flash NVS)",
                s_rotate_time_90_ms);
     } else if (c == '-' || c == '_') {
       s_rotate_time_90_ms -= 5;
@@ -1434,8 +1534,22 @@ void app_main(void) {
         s_rotate_time_90_ms = 100;
       calib_save_to_nvs();
       ESP_LOGW(TAG,
-               ">>> [CALIB ±5ms 90 DO] GIAM thoi gian quay: %d ms (Da luu Flash NVS)",
+               ">>> [CALIB ±5ms 90 DO QUAY DI] GIAM thoi gian quay DI: %d ms (Da luu Flash NVS)",
                s_rotate_time_90_ms);
+    } else if (c == '5') {
+      s_rotate_time_90_rev_ms -= 5;
+      if (s_rotate_time_90_rev_ms < 100)
+        s_rotate_time_90_rev_ms = 100;
+      calib_save_to_nvs();
+      ESP_LOGW(TAG,
+               ">>> [CALIB ±5ms 90 DO QUAY VE] GIAM thoi gian quay VE: %d ms (Da luu Flash NVS)",
+               s_rotate_time_90_rev_ms);
+    } else if (c == '6') {
+      s_rotate_time_90_rev_ms += 5;
+      calib_save_to_nvs();
+      ESP_LOGW(TAG,
+               ">>> [CALIB ±5ms 90 DO QUAY VE] TANG thoi gian quay VE: %d ms (Da luu Flash NVS)",
+               s_rotate_time_90_rev_ms);
     } else if (c == '7') {
       s_rotate_time_180_fwd_ms -= 5;
       if (s_rotate_time_180_fwd_ms < 100)
