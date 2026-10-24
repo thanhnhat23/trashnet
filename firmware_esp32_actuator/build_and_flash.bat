@@ -1,9 +1,9 @@
 @echo off
-title TrashNet - ESP32 Actuator (Servo + Stepper + LCD)
+title TrashNet - ESP32 Actuator (Servo 360 + Servo 180 + LCD)
 cls
 echo =====================================================================
 echo    TRASHNET - ESP32 ACTUATOR BUILD AND FLASH (ESP-IDF)
-echo    (Dieu khien: Servo MG995 + Stepper 28BYJ-48 + LCD 1602A I2C)
+echo    (Dieu khien: Servo 360 [G18] + Servo Hat Rac theo ms [G19] + LCD)
 echo =====================================================================
 echo.
 
@@ -59,6 +59,13 @@ exit /b 1
 
 :FLASH_FAIL
 echo.
-echo [LOI] Nap that bai! Kiem tra day cap va cong COM.
+echo =====================================================================
+echo [LOI] Nap that bai vao %com_port%!
+echo NGUYEN NHAN PHO BIEN:
+echo   1. Cong %com_port% dang bi chiem boi Serial Monitor cu:
+echo      - Hay qua cua so Terminal dang chay 'python' (Serial Monitor),
+echo        an to hop phim [Ctrl] + [ ] ] de thoat monitor!
+echo   2. Day cap USB bi long hoac chua giu nut BOOT khi hien 'Connecting...'.
+echo =====================================================================
 pause
 exit /b 1

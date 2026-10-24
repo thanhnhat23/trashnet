@@ -539,3 +539,36 @@ body.app-body {
 .status-dot.offline {
     background: #ef4444;
 }
+
+/* Navigation Views */
+.nav-view {
+    width: 100%;
+    min-height: 100%;
+}
+
+.nav-view.active {
+    display: block;
+}
+
+/* Bin Quick Action Buttons on Main Tab */
+.bin-quick-btn {
+    background: #08080c;
+    border-color: #27272a;
+    transition: all 0.15s ease-in-out;
+}
+
+.bin-quick-btn:hover {
+    background: #14141b !important;
+    border-color: #52525b !important;
+    transform: translateY(-1px);
+}
+
+.bin-quick-btn:active {
+    transform: translateY(1px);
+}
+
+.btn-xs {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem;
+    line-height: 1.2;
+}

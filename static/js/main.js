@@ -116,7 +116,9 @@ function switchNavTab(tabName) {
     }
 
     if (tabName === 'history') {
-        renderFullHistoryGrid();
+        loadAndRenderHistory();
+    } else if (tabName === 'settings') {
+        loadActuatorSettings();
     } else if (tabName === 'analytics') {
         renderAnalyticsStats();
     }
@@ -255,7 +257,7 @@ function getCleanActuatorUrl() {
     const el = document.getElementById('actuatorIpInputMain') || document.getElementById('actuatorIpInput');
     let saved = '';
     try { saved = localStorage.getItem('trashnet_actuator_ip') || ''; } catch (e) {}
-    let url = (el ? el.value : '').trim() || saved || 'http://172.16.3.205';
+    let url = (el ? el.value : '').trim() || saved || 'http://172.16.0.116';
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = 'http://' + url;
     }
@@ -436,14 +438,15 @@ function pollActuatorCompletion() {
                 if (lcd2) lcd2.textContent = 'SAN SANG NHAN RAC';
 
                 // NẾU ĐANG BẬT TỰ ĐỘNG QUÉT (AUTO-SCAN):
-                // Chờ đúng 3 giây cho người dùng đặt rác tiếp theo rồi MỚI chụp tiếp!
+                // Sử dụng thời gian chờ đã cấu hình trong settings
                 if (esp32AutoScanCheck && esp32AutoScanCheck.checked) {
-                    if (engineStatus) engineStatus.textContent = 'SẴN SÀNG: ĐẶT RÁC TIẾP THEO (3s)...';
+                    const delaySec = (typeof currentActuatorSettings !== 'undefined' && currentActuatorSettings.auto_scan_interval_sec) ? currentActuatorSettings.auto_scan_interval_sec : 3;
+                    if (engineStatus) engineStatus.textContent = `SẴN SÀNG: ĐẶT RÁC TIẾP THEO (${delaySec}s)...`;
                     esp32AutoScanTimer = setTimeout(() => {
                         if (esp32AutoScanCheck && esp32AutoScanCheck.checked && !isActuatorCurrentlyBusy) {
                             captureEsp32Cam();
                         }
-                    }, 3000);
+                    }, delaySec * 1000);
                 }
             } else if (data.is_busy) {
                 if (btn) {
@@ -606,40 +609,107 @@ function renderResults(data, imageThumb) {
         });
     }
 
-    // Add to history
-    if (imageThumb) {
-        saveToHistory({
-            time: new Date().toLocaleTimeString(),
-            thumb: imageThumb,
-            name_vi: data.name_vi,
-            class_name: data.class,
-            category: data.category,
-            confidence: data.confidence
-        });
+    // Cập nhật nhật ký phân loại trực tiếp từ file JSON trên Server
+    loadAndRenderHistory();
+}
+
+// ============================================================
+// 7. PERSISTENT CLASSIFICATION HISTORY (LƯU VÀO FILE JSON TRÊN SERVER)
+// ============================================================
+let serverClassificationHistory = [];
+let currentHistoryFilter = 'all';
+let currentHistorySearchQuery = '';
+
+async function loadAndRenderHistory() {
+    try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        if (data.status === 'ok') {
+            serverClassificationHistory = data.records || [];
+            
+            // Cập nhật các ô thống kê ở đầu trang lịch sử
+            const stats = data.stats || {};
+            const totalEl = document.getElementById('histStatTotal');
+            const burnableEl = document.getElementById('histStatBurnable');
+            const glassEl = document.getElementById('histStatGlass');
+            const metalEl = document.getElementById('histStatMetal');
+            const counterBadge = document.getElementById('historyCounterBadge');
+            
+            if (totalEl) totalEl.textContent = stats.total || 0;
+            if (burnableEl) burnableEl.textContent = stats.burnable || 0;
+            if (glassEl) glassEl.textContent = stats.glass || 0;
+            if (metalEl) metalEl.textContent = (stats.metal || 0) + ' | ' + (stats.plastic || 0) + ' (PET)';
+            if (counterBadge) counterBadge.textContent = `${stats.total || 0} MỤC`;
+            if (sidebarHistoryCount) sidebarHistoryCount.textContent = stats.total || 0;
+            
+            applyHistoryFiltersAndRender();
+        }
+    } catch (e) {
+        console.warn('Lỗi tải lịch sử từ server:', e);
     }
 }
 
-// ============================================================
-// 7. HISTORY MANAGEMENT
-// ============================================================
-function saveToHistory(entry) {
-    scanHistory.unshift(entry);
-    if (scanHistory.length > 50) scanHistory.pop();
-    try {
-        localStorage.setItem('trashnet_history', JSON.stringify(scanHistory));
-    } catch (e) {}
-    updateHistoryCounters();
+function filterHistory(category, btnEl) {
+    currentHistoryFilter = category;
+    const group = document.getElementById('historyFilterGroup');
+    if (group) {
+        group.querySelectorAll('button').forEach(b => {
+            b.classList.remove('btn-white', 'active');
+            b.classList.add('btn-outline-mono');
+        });
+    }
+    if (btnEl) {
+        btnEl.classList.remove('btn-outline-mono');
+        btnEl.classList.add('btn-white', 'active');
+    }
+    applyHistoryFiltersAndRender();
 }
 
-function updateHistoryCounters() {
-    if (sidebarHistoryCount) sidebarHistoryCount.textContent = scanHistory.length;
+function handleHistorySearch(keyword) {
+    currentHistorySearchQuery = (keyword || '').toLowerCase().trim();
+    applyHistoryFiltersAndRender();
 }
 
-function renderFullHistoryGrid() {
-    updateHistoryCounters();
+function applyHistoryFiltersAndRender() {
+    let filtered = serverClassificationHistory;
+    
+    // 1. Lọc theo danh mục
+    if (currentHistoryFilter !== 'all') {
+        filtered = filtered.filter(item => {
+            const cat = (item.category || '').toLowerCase();
+            const name = (item.name_vi || '').toLowerCase();
+            const cls = (item.class || '').toLowerCase();
+            const bin = item.bin_number;
+            
+            if (currentHistoryFilter === 'burnable') {
+                return cat.includes('cháy') || cat.includes('hữu cơ') || bin === 1 || cls === 'burnable' || cls === 'biological' || cls === 'paper' || cls === 'cardboard';
+            } else if (currentHistoryFilter === 'glass') {
+                return name.includes('thủy tinh') || bin === 2 || cls === 'glass';
+            } else if (currentHistoryFilter === 'metal') {
+                return name.includes('kim loại') || bin === 3 || cls === 'metal' || cls === 'battery';
+            } else if (currentHistoryFilter === 'plastic') {
+                return name.includes('nhựa') || bin === 4 || cls === 'plastic';
+            }
+            return true;
+        });
+    }
+    
+    // 2. Lọc theo ô tìm kiếm
+    if (currentHistorySearchQuery) {
+        filtered = filtered.filter(item => {
+            const txt = `${item.name_vi} ${item.class} ${item.category} ${item.bin}`.toLowerCase();
+            return txt.includes(currentHistorySearchQuery);
+        });
+    }
+    
+    renderFullHistoryGrid(filtered);
+}
+
+function renderFullHistoryGrid(items = null) {
+    const records = items !== null ? items : serverClassificationHistory;
     if (!fullHistoryEmpty || !fullHistoryGrid) return;
 
-    if (scanHistory.length === 0) {
+    if (!records || records.length === 0) {
         fullHistoryEmpty.classList.remove('d-none');
         fullHistoryGrid.classList.add('d-none');
         fullHistoryGrid.innerHTML = '';
@@ -650,19 +720,40 @@ function renderFullHistoryGrid() {
     fullHistoryGrid.classList.remove('d-none');
     fullHistoryGrid.innerHTML = '';
 
-    scanHistory.forEach(item => {
+    records.forEach(item => {
         const col = document.createElement('div');
         col.className = 'col-12 col-sm-6 col-md-4 col-xl-3';
+        
+        const thumbSrc = item.thumb || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="%2327272a"><rect width="24" height="24"/></svg>';
+        const agreeIcon = item.models_agree 
+            ? '<i class="fa-solid fa-circle-check text-success" title="2 mô hình ResNet-18 & YOLO11n đồng thuận tuyệt đối"></i>' 
+            : '<i class="fa-solid fa-code-compare text-warning" title="Phân loại qua Soft Voting Late Fusion"></i>';
+            
+        const binBadgeColor = item.bin_color || '#22c55e';
+        
         col.innerHTML = `
-            <div class="p-2 border border-zinc bg-zinc-900 rounded-1 d-flex gap-2 align-items-center">
-                <img src="${item.thumb}" alt="thumb" style="width: 56px; height: 56px; object-fit: cover; border-radius: 4px; border: 1px solid #27272a; flex-shrink: 0;">
-                <div class="overflow-hidden flex-grow-1">
-                    <div class="fw-semibold text-white text-truncate small">${item.name_vi}</div>
-                    <div class="text-zinc-500 font-mono" style="font-size: 0.72rem;">${item.category}</div>
-                    <div class="d-flex align-items-center justify-content-between mt-1">
-                        <span class="badge border border-zinc-700 text-zinc-400 font-mono" style="font-size: 0.65rem;">${item.time}</span>
-                        <span class="font-mono text-white fw-bold small">${item.confidence}%</span>
+            <div class="p-2 border border-zinc bg-zinc-900 rounded-1 d-flex flex-column justify-content-between h-100 position-relative">
+                <div class="d-flex gap-2 align-items-start">
+                    <img src="${thumbSrc}" alt="thumb" style="width: 64px; height: 64px; object-fit: cover; border-radius: 4px; border: 1px solid #27272a; flex-shrink: 0;">
+                    <div class="overflow-hidden flex-grow-1">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="badge border border-zinc-700 font-mono text-zinc-400" style="font-size: 0.65rem;">${item.time_display || item.date_display || ''}</span>
+                            <button type="button" class="btn btn-link text-zinc-500 p-0 text-decoration-none" title="Xóa bản ghi này" onclick="deleteHistoryItem('${item.id}')" style="font-size: 0.8rem;">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div class="fw-semibold text-white text-truncate small mt-1" title="${item.name_vi}">${item.name_vi}</div>
+                        <div class="text-zinc-500 font-mono text-truncate" style="font-size: 0.72rem;">${item.category} (${item.class})</div>
                     </div>
+                </div>
+                
+                <div class="mt-2 pt-2 border-top border-zinc d-flex align-items-center justify-content-between" style="font-size: 0.72rem;">
+                    <div class="d-flex align-items-center gap-1 font-mono">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${binBadgeColor};"></span>
+                        <span class="text-zinc-300">Ngăn ${item.bin_number}</span>
+                        ${agreeIcon}
+                    </div>
+                    <span class="font-mono text-white fw-bold">${item.confidence}%</span>
                 </div>
             </div>
         `;
@@ -670,15 +761,23 @@ function renderFullHistoryGrid() {
     });
 }
 
-function clearHistory() {
-    if (!confirm('Bạn có chắc muốn xóa toàn bộ lịch sử phân loại trong phiên này?')) return;
-    scanHistory = [];
+async function deleteHistoryItem(id) {
     try {
-        localStorage.removeItem('trashnet_history');
-    } catch (e) {}
-    updateHistoryCounters();
-    renderFullHistoryGrid();
-    renderAnalyticsStats();
+        await fetch(`/api/history?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        loadAndRenderHistory();
+    } catch (e) {
+        console.warn('Lỗi xóa mục lịch sử:', e);
+    }
+}
+
+async function clearHistory() {
+    if (!confirm('Bạn có chắc chắn muốn xóa TOÀN BỘ lịch sử phân loại đã lưu trong file classification_history.json?')) return;
+    try {
+        await fetch('/api/history', { method: 'DELETE' });
+        loadAndRenderHistory();
+    } catch (e) {
+        console.warn('Lỗi xóa tất cả lịch sử:', e);
+    }
 }
 
 // ============================================================
@@ -747,6 +846,11 @@ function updateActuatorHardwareUi(actuator, viName = '') {
 }
 
 async function triggerManualBin(binNum, binTitle) {
+    if (isActuatorCurrentlyBusy) {
+        console.warn('ESP32 Actuator đang bận chu trình trước, vui lòng đợi xong');
+        return;
+    }
+    isActuatorCurrentlyBusy = true;
     updateActuatorHardwareUi({
         bin: binNum,
         lcd_title: binTitle || `Rac NGAN ${binNum}`,
@@ -763,8 +867,10 @@ async function triggerManualBin(binNum, binTitle) {
                 name: binTitle
             })
         });
+        pollActuatorCompletion();
     } catch (e) {
         console.warn('Lỗi gửi lệnh Actuator:', e);
+        isActuatorCurrentlyBusy = false;
     }
 }
 
@@ -976,17 +1082,398 @@ function setLoading(isLoading, text = 'ĐANG XỬ LÝ...') {
     }
 }
 
+// ============================================================
+// 11. HARDWARE TIMING CALIBRATION (BƯỚC ±5ms) & ESP32-CAM SYNC
+// ============================================================
+let currentActuatorSettings = {
+    enabled: true,
+    actuator_ip: "http://172.16.0.116",
+    esp32_cam_ip: "http://172.16.0.100",
+    auto_scan_interval_sec: 3,
+    rotate_time_90_ms: 950,
+    rotate_time_180_fwd_ms: 1850,
+    rotate_time_180_rev_ms: 1955,
+    dump_fwd_time_ms: 500,
+    dump_rev_time_ms: 500,
+    dump_wait_ms: 1500,
+    dump_inverted: false
+};
+
+async function loadActuatorSettings() {
+    try {
+        const res = await fetch('/api/actuator/settings');
+        const data = await res.json();
+        if (data.status === 'ok' && data.settings) {
+            currentActuatorSettings = data.settings;
+            populateSettingsUi(data.settings);
+            
+            // Cập nhật IP sang các input ở tab khác
+            const actMain = document.getElementById('actuatorIpInputMain');
+            const actTab = document.getElementById('actuatorIpInput');
+            if (actMain) actMain.value = data.settings.actuator_ip || 'http://172.16.0.116';
+            if (actTab) actTab.value = data.settings.actuator_ip || 'http://172.16.0.116';
+            if (esp32IpInput) esp32IpInput.value = data.settings.esp32_cam_ip || 'http://172.16.0.100';
+        }
+    } catch (e) {
+        console.warn('Lỗi tải cài đặt:', e);
+    }
+}
+
+function populateSettingsUi(s) {
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val !== undefined) el.value = val;
+    };
+
+    setVal('cfg_rotate_time_90_ms', s.rotate_time_90_ms);
+    setVal('cfg_rotate_time_180_fwd_ms', s.rotate_time_180_fwd_ms);
+    setVal('cfg_rotate_time_180_rev_ms', s.rotate_time_180_rev_ms);
+    setVal('cfg_dump_fwd_time_ms', s.dump_fwd_time_ms);
+    setVal('cfg_dump_rev_time_ms', s.dump_rev_time_ms);
+    setVal('cfg_dump_rest_angle', s.dump_rest_angle !== undefined ? s.dump_rest_angle : 0);
+    setVal('cfg_dump_wait_ms', s.dump_wait_ms);
+    setVal('cfg_esp32_cam_ip', s.esp32_cam_ip);
+    setVal('cfg_auto_scan_interval_sec', s.auto_scan_interval_sec);
+
+    const invLabel = document.getElementById('cfg_dump_inverted_label');
+    if (invLabel) {
+        invLabel.textContent = s.dump_inverted 
+            ? 'Chiều Nghịch (180° -> 90° -> 180°)' 
+            : 'Chiều Thuận (0° -> 90° -> 0°)';
+    }
+}
+
+function stepTiming(key, delta) {
+    const input = document.getElementById(`cfg_${key}`);
+    if (!input) return;
+    let val = parseInt(input.value) || 0;
+    val += delta;
+    if (val < parseInt(input.min || 50)) val = parseInt(input.min || 50);
+    if (val > parseInt(input.max || 10000)) val = parseInt(input.max || 10000);
+    input.value = val;
+    currentActuatorSettings[key] = val;
+}
+
+function stepCamInterval(delta) {
+    const input = document.getElementById('cfg_auto_scan_interval_sec');
+    if (!input) return;
+    let val = parseInt(input.value) || 3;
+    val += delta;
+    if (val < 1) val = 1;
+    if (val > 30) val = 30;
+    input.value = val;
+    currentActuatorSettings['auto_scan_interval_sec'] = val;
+}
+
+async function toggleServoDirectionFromUi() {
+    currentActuatorSettings.dump_inverted = !currentActuatorSettings.dump_inverted;
+    const invLabel = document.getElementById('cfg_dump_inverted_label');
+    if (invLabel) {
+        invLabel.textContent = currentActuatorSettings.dump_inverted 
+            ? 'Chiều Nghịch (180° -> 90° -> 180°)' 
+            : 'Chiều Thuận (0° -> 90° -> 0°)';
+    }
+    try {
+        await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'invert' })
+        });
+    } catch (e) {}
+}
+
+async function saveActuatorSettingsFromUi() {
+    const badge = document.getElementById('settingsSaveStatus');
+    if (badge) {
+        badge.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> ĐANG LƯU VÀO FILE & MẠCH...';
+        badge.className = 'badge bg-white text-black font-mono';
+    }
+
+    const getVal = (id, fallback) => {
+        const el = document.getElementById(id);
+        return el ? (parseInt(el.value) || fallback) : fallback;
+    };
+
+    currentActuatorSettings.rotate_time_90_ms = getVal('cfg_rotate_time_90_ms', 950);
+    currentActuatorSettings.rotate_time_180_fwd_ms = getVal('cfg_rotate_time_180_fwd_ms', 1850);
+    currentActuatorSettings.rotate_time_180_rev_ms = getVal('cfg_rotate_time_180_rev_ms', 1955);
+    currentActuatorSettings.dump_fwd_time_ms = getVal('cfg_dump_fwd_time_ms', 500);
+    currentActuatorSettings.dump_rev_time_ms = getVal('cfg_dump_rev_time_ms', 500);
+    currentActuatorSettings.dump_rest_angle = getVal('cfg_dump_rest_angle', 0);
+    currentActuatorSettings.dump_wait_ms = getVal('cfg_dump_wait_ms', 1500);
+
+    try {
+        const res = await fetch('/api/actuator/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentActuatorSettings)
+        });
+        const data = await res.json();
+
+        if (badge) {
+            if (data.esp_sync && data.esp_sync.synced) {
+                badge.innerHTML = '<i class="fa-solid fa-check me-1"></i> ĐÃ LƯU VÀO FILE & FLASH NVS ESP32';
+                badge.className = 'badge bg-success text-white font-mono';
+            } else {
+                badge.innerHTML = '<i class="fa-solid fa-check me-1"></i> ĐÃ LƯU VÀO FILE JSON';
+                badge.className = 'badge border border-success text-success font-mono';
+            }
+            setTimeout(() => {
+                badge.innerHTML = 'LƯU TRỰC TIẾP VÀO FILE';
+                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
+            }, 3000);
+        }
+    } catch (err) {
+        if (badge) {
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i> LỖI LƯU CÀI ĐẶT';
+            badge.className = 'badge bg-danger text-white font-mono';
+        }
+    }
+}
+
+async function saveCamSettingsFromUi() {
+    const camIpInput = document.getElementById('cfg_esp32_cam_ip');
+    const intervalInput = document.getElementById('cfg_auto_scan_interval_sec');
+    
+    let camIp = (camIpInput ? camIpInput.value : '').trim();
+    if (!camIp.startsWith('http://') && !camIp.startsWith('https://')) {
+        camIp = 'http://' + camIp;
+    }
+    
+    currentActuatorSettings.esp32_cam_ip = camIp;
+    currentActuatorSettings.auto_scan_interval_sec = parseInt(intervalInput ? intervalInput.value : 3) || 3;
+    
+    // Đồng bộ sang localStorage và input camera
+    try {
+        localStorage.setItem('trashnet_esp32_ip', camIp);
+    } catch (e) {}
+    if (esp32IpInput) esp32IpInput.value = camIp;
+
+    await saveActuatorSettingsFromUi();
+    connectEsp32Cam();
+}
+
+// ============================================================
+// 12. MANUAL ACTUATOR CONTROL (Phím bấm & Phím tắt 1, 2, 3, 4, D)
+// ============================================================
+async function connectActuatorFromMain() {
+    const input = document.getElementById('actuatorIpInputMain');
+    const statusText = document.getElementById('actuatorStatusTextMain');
+    const quickBadge = document.getElementById('quickActuatorStatusBadge');
+    if (!input) return;
+
+    let ip = input.value.trim();
+    if (!ip) ip = 'http://172.16.0.116';
+    if (!ip.startsWith('http://') && !ip.startsWith('https://')) {
+        ip = 'http://' + ip;
+    }
+    input.value = ip;
+
+    if (statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang nối thùng...';
+
+    try {
+        await fetch('/api/actuator/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: ip, enabled: true })
+        });
+
+        const sRes = await fetch('/api/actuator/status');
+        const sData = await sRes.json();
+        const displayIp = ip.replace(/^https?:\/\//, '');
+
+        if (sData.online) {
+            if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-check text-success me-1"></i> Thùng: ${displayIp} (Online)`;
+            if (quickBadge) {
+                quickBadge.textContent = 'ONLINE';
+                quickBadge.className = 'badge bg-success font-mono';
+            }
+        } else {
+            if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-info text-zinc-400 me-1"></i> Thùng: ${displayIp}`;
+            if (quickBadge) {
+                quickBadge.textContent = 'SẴN SÀNG';
+                quickBadge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
+            }
+        }
+    } catch (e) {
+        const displayIp = ip.replace(/^https?:\/\//, '');
+        if (statusText) statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-warning me-1"></i> Nối thùng: ${displayIp}`;
+    }
+}
+
+async function triggerManualBin(binNum) {
+    if (isActuatorCurrentlyBusy) {
+        const badge = document.getElementById('quickActuatorStatusBadge');
+        if (badge) {
+            const oldText = badge.textContent;
+            badge.textContent = 'ĐANG BẬN...';
+            badge.className = 'badge bg-warning text-dark font-mono';
+            setTimeout(() => {
+                badge.textContent = oldText;
+                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
+            }, 800);
+        }
+        return;
+    }
+
+    const btn = document.getElementById(`btnQuickBin${binNum}`);
+    const badge = document.getElementById('quickActuatorStatusBadge');
+    const modeRotateOnly = document.getElementById('modeRotateOnly');
+    const isRotateOnly = modeRotateOnly && modeRotateOnly.checked;
+
+    const action = isRotateOnly ? 'rotate' : 'bin';
+    const actionLabel = isRotateOnly ? `QUAY NGĂN ${binNum}...` : `CHU TRÌNH NGĂN ${binNum}...`;
+
+    isActuatorCurrentlyBusy = true;
+    if (btn) btn.classList.add('border-primary', 'bg-zinc-800');
+    if (badge) {
+        badge.textContent = actionLabel;
+        badge.className = 'badge bg-warning text-dark font-mono';
+    }
+
+    try {
+        const res = await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: action,
+                bin: binNum,
+                name: `Ngăn ${binNum}`
+            })
+        });
+        const data = await res.json();
+        if (data.error) {
+            if (badge) {
+                badge.textContent = `LỖI: ${data.error}`;
+                badge.className = 'badge bg-danger text-white font-mono';
+            }
+        } else {
+            if (badge) {
+                badge.textContent = isRotateOnly ? `ĐÃ ĐẾN NGĂN ${binNum}` : `XONG NGĂN ${binNum}`;
+                badge.className = 'badge bg-success text-white font-mono';
+            }
+        }
+    } catch (e) {
+        if (badge) {
+            badge.textContent = 'LỖI KẾT NỐI';
+            badge.className = 'badge bg-danger text-white font-mono';
+        }
+    } finally {
+        setTimeout(() => {
+            isActuatorCurrentlyBusy = false;
+            if (btn) btn.classList.remove('border-primary', 'bg-zinc-800');
+            if (badge) {
+                badge.textContent = 'SẴN SÀNG';
+                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
+            }
+        }, 1800);
+    }
+}
+
+async function triggerManualDump() {
+    if (isActuatorCurrentlyBusy) {
+        return;
+    }
+    const btn = document.getElementById('btnQuickDump');
+    const badge = document.getElementById('quickActuatorStatusBadge');
+
+    isActuatorCurrentlyBusy = true;
+    if (btn) btn.classList.add('btn-warning', 'text-dark');
+    if (badge) {
+        badge.textContent = 'ĐANG HẤT RÁC...';
+        badge.className = 'badge bg-warning text-dark font-mono';
+    }
+
+    try {
+        const res = await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'dump' })
+        });
+        const data = await res.json();
+        if (data.error) {
+            if (badge) {
+                badge.textContent = `LỖI: ${data.error}`;
+                badge.className = 'badge bg-danger text-white font-mono';
+            }
+        } else {
+            if (badge) {
+                badge.textContent = 'HẤT RÁC XONG';
+                badge.className = 'badge bg-success text-white font-mono';
+            }
+        }
+    } catch (e) {
+        if (badge) {
+            badge.textContent = 'LỖI KẾT NỐI';
+            badge.className = 'badge bg-danger text-white font-mono';
+        }
+    } finally {
+        setTimeout(() => {
+            isActuatorCurrentlyBusy = false;
+            if (btn) btn.classList.remove('btn-warning', 'text-dark');
+            if (badge) {
+                badge.textContent = 'SẴN SÀNG';
+                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
+            }
+        }, 1500);
+    }
+}
+
+async function testActuatorCmd(cmd) {
+    if (cmd === 'dump') {
+        triggerManualDump();
+    } else if (cmd.startsWith('bin')) {
+        const bin = parseInt(cmd.replace('bin', '')) || 1;
+        triggerManualBin(bin);
+    } else if (cmd === 'rotate_3_fwd') {
+        fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rotate_test', step: '3_fwd' })
+        }).catch(e => console.warn(e));
+    } else if (cmd === 'rotate_3_rev') {
+        fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rotate_test', step: '3_rev' })
+        }).catch(e => console.warn(e));
+    }
+}
+
+// Bắt phím tắt 1, 2, 3, 4 hoặc D trên bàn phím (khi không gõ ô input)
+document.addEventListener('keydown', (e) => {
+    const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        return;
+    }
+
+    if (e.key === '1') {
+        e.preventDefault();
+        triggerManualBin(1);
+    } else if (e.key === '2') {
+        e.preventDefault();
+        triggerManualBin(2);
+    } else if (e.key === '3') {
+        e.preventDefault();
+        triggerManualBin(3);
+    } else if (e.key === '4') {
+        e.preventDefault();
+        triggerManualBin(4);
+    } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        triggerManualDump();
+    }
+});
+
 // Tự động khởi tạo kết nối ESP32-CAM và ESP32 Thùng Rác khi tải trang
 document.addEventListener('DOMContentLoaded', () => {
-    // Tải IP đã lưu nếu có
-    try {
-        const savedCam = localStorage.getItem('trashnet_esp32_ip');
-        if (savedCam && esp32IpInput) esp32IpInput.value = savedCam;
-        const savedAct = localStorage.getItem('trashnet_actuator_ip');
-        const actInput = document.getElementById('actuatorIpInputMain');
-        if (savedAct && actInput) actInput.value = savedAct;
-    } catch (e) {}
+    // 1. Tải cài đặt từ server (file actuator_settings.json)
+    loadActuatorSettings();
 
+    // 2. Tải lịch sử phân loại từ file classification_history.json
+    loadAndRenderHistory();
+
+    // 3. Kết nối ESP32-CAM và Actuator
     setTimeout(() => {
         connectEsp32Cam();
         connectActuatorFromMain();

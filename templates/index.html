@@ -122,7 +122,7 @@
                                                     <span class="input-group-text bg-black border-zinc text-zinc-400 font-mono" style="font-size: 0.72rem; min-width: 95px;">
                                                         <i class="fa-solid fa-microchip me-1"></i> IP THÙNG
                                                     </span>
-                                                    <input type="text" id="actuatorIpInputMain" class="form-control bg-black border-zinc text-white font-mono" placeholder="http://172.16.3.205" value="http://172.16.3.205" style="font-size: 0.8rem;">
+                                                    <input type="text" id="actuatorIpInputMain" class="form-control bg-black border-zinc text-white font-mono" placeholder="http://172.16.0.116" value="http://172.16.0.116" style="font-size: 0.8rem;">
                                                 </div>
                                                 <button type="button" class="btn btn-outline-mono btn-sm text-nowrap" id="btnConnectActuatorMain" onclick="connectActuatorFromMain()">
                                                     <i class="fa-solid fa-bolt me-1"></i> Nối Thùng
@@ -132,7 +132,7 @@
                                             <!-- Status Summary Bar -->
                                             <div class="d-flex align-items-center justify-content-between pt-1 border-top border-zinc" style="font-size: 0.7rem;">
                                                 <span class="text-zinc-400 font-mono" id="esp32StatusText"><i class="fa-solid fa-circle-dot text-zinc-600 me-1"></i> CAM: Chưa kết nối</span>
-                                                <span class="text-zinc-400 font-mono" id="actuatorStatusTextMain"><i class="fa-solid fa-circle-check text-success me-1"></i> Thùng: 172.16.3.205</span>
+                                                <span class="text-zinc-400 font-mono" id="actuatorStatusTextMain"><i class="fa-solid fa-circle-check text-success me-1"></i> Thùng: 172.16.0.116</span>
                                             </div>
                                         </div>
 
@@ -182,6 +182,75 @@
                                                 <div class="form-check form-switch mb-0">
                                                     <input class="form-check-input" type="checkbox" id="esp32AutoScanCheck" onchange="toggleEsp32AutoScan(this.checked)">
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- BỘ ĐIỀU KHIỂN QUAY THÙNG & HẤT RÁC THỦ CÔNG (THAY SERIAL) -->
+                                        <div class="mt-2 p-2 border border-zinc rounded-1 bg-zinc-900">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <span class="small font-mono text-zinc-300 fw-semibold">
+                                                    <i class="fa-solid fa-gamepad text-success me-1"></i> QUAY THÙNG THỦ CÔNG
+                                                </span>
+                                                <span class="badge border border-zinc-700 text-zinc-400 font-mono" style="font-size: 0.65rem;" id="quickActuatorStatusBadge">SẴN SÀNG</span>
+                                            </div>
+
+                                            <!-- 4 Nút Ngăn 1 2 3 4 -->
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-6 col-sm-3">
+                                                    <button type="button" class="btn btn-outline-mono btn-sm w-100 p-2 text-start d-flex flex-column justify-content-between bin-quick-btn" onclick="triggerManualBin(1)" id="btnQuickBin1" title="Quay tới Ngăn 1 (0°) [Phím 1]">
+                                                        <div class="d-flex align-items-center justify-content-between w-100">
+                                                            <span class="badge bg-success font-mono" style="font-size: 0.65rem;">NGĂN 1</span>
+                                                            <span class="small text-zinc-500 font-mono">[1]</span>
+                                                        </div>
+                                                        <div class="small fw-semibold text-white mt-1 text-truncate">Cháy được</div>
+                                                        <div class="text-zinc-500 font-mono" style="font-size: 0.68rem;">0° &bull; Hữu cơ</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6 col-sm-3">
+                                                    <button type="button" class="btn btn-outline-mono btn-sm w-100 p-2 text-start d-flex flex-column justify-content-between bin-quick-btn" onclick="triggerManualBin(2)" id="btnQuickBin2" title="Quay tới Ngăn 2 (90°) [Phím 2]">
+                                                        <div class="d-flex align-items-center justify-content-between w-100">
+                                                            <span class="badge bg-info text-dark font-mono" style="font-size: 0.65rem;">NGĂN 2</span>
+                                                            <span class="small text-zinc-500 font-mono">[2]</span>
+                                                        </div>
+                                                        <div class="small fw-semibold text-white mt-1 text-truncate">Thủy tinh</div>
+                                                        <div class="text-zinc-500 font-mono" style="font-size: 0.68rem;">90° &bull; Chai lọ</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6 col-sm-3">
+                                                    <button type="button" class="btn btn-outline-mono btn-sm w-100 p-2 text-start d-flex flex-column justify-content-between bin-quick-btn" onclick="triggerManualBin(3)" id="btnQuickBin3" title="Quay tới Ngăn 3 (180°) [Phím 3]">
+                                                        <div class="d-flex align-items-center justify-content-between w-100">
+                                                            <span class="badge bg-warning text-dark font-mono" style="font-size: 0.65rem;">NGĂN 3</span>
+                                                            <span class="small text-zinc-500 font-mono">[3]</span>
+                                                        </div>
+                                                        <div class="small fw-semibold text-white mt-1 text-truncate">Kim loại</div>
+                                                        <div class="text-zinc-500 font-mono" style="font-size: 0.68rem;">180° &bull; Lon</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6 col-sm-3">
+                                                    <button type="button" class="btn btn-outline-mono btn-sm w-100 p-2 text-start d-flex flex-column justify-content-between bin-quick-btn" onclick="triggerManualBin(4)" id="btnQuickBin4" title="Quay tới Ngăn 4 (-90°) [Phím 4]">
+                                                        <div class="d-flex align-items-center justify-content-between w-100">
+                                                            <span class="badge font-mono" style="background-color: #a855f7; font-size: 0.65rem;">NGĂN 4</span>
+                                                            <span class="small text-zinc-500 font-mono">[4]</span>
+                                                        </div>
+                                                        <div class="small fw-semibold text-white mt-1 text-truncate">Nhựa PET</div>
+                                                        <div class="text-zinc-500 font-mono" style="font-size: 0.68rem;">-90° &bull; Chai nhựa</div>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Hàng nút phụ: Hất Rác + Chế độ -->
+                                            <div class="d-flex gap-2 align-items-center justify-content-between pt-2 border-top border-zinc">
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <input type="radio" class="btn-check" name="binActionType" id="modeFullAction" value="full" checked autocomplete="off">
+                                                    <label class="btn btn-outline-mono btn-xs font-mono" for="modeFullAction" style="font-size: 0.7rem; padding: 2px 6px;">Quay + Hất</label>
+
+                                                    <input type="radio" class="btn-check" name="binActionType" id="modeRotateOnly" value="rotate" autocomplete="off">
+                                                    <label class="btn btn-outline-mono btn-xs font-mono" for="modeRotateOnly" style="font-size: 0.7rem; padding: 2px 6px;">Chỉ quay</label>
+                                                </div>
+
+                                                <button type="button" class="btn btn-outline-warning btn-sm font-mono text-nowrap" onclick="triggerManualDump()" id="btnQuickDump" title="Mở nắp servo hất rác ngay lập tức [Phím D / Space]" style="font-size: 0.75rem; padding: 3px 8px;">
+                                                    <i class="fa-solid fa-eject me-1"></i> Hất Rác [D]
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -364,23 +433,78 @@
 
                     </div>
                 </div>
+            </div>
 
-                <!-- TAB 2: SCAN HISTORY VIEW -->
+            <!-- TAB 2: SCAN HISTORY VIEW (LỊCH SỬ PHÂN LOẠI TRỰC TIẾP TỪ FILE JSON) -->
                 <div id="viewHistory" class="nav-view d-none h-100">
                     <div class="mono-card h-100 d-flex flex-column">
-                        <div class="mono-card-header d-flex align-items-center justify-content-between">
-                            <span class="card-title">NHẬT KÝ PHÂN LOẠI TRONG PHIÊN</span>
-                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearHistory()">
-                                <i class="fa-solid fa-trash me-1"></i> Xóa tất cả
-                            </button>
+                        <div class="mono-card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="card-title">NHẬT KÝ PHÂN LOẠI TOÀN HỆ THỐNG</span>
+                                <span class="badge border border-zinc-700 text-zinc-400 font-mono" id="historyCounterBadge">0 MỤC</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-mono btn-sm" onclick="loadAndRenderHistory()" title="Tải lại từ server">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i> Làm mới
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearHistory()">
+                                    <i class="fa-solid fa-trash me-1"></i> Xóa tất cả
+                                </button>
+                            </div>
                         </div>
+
+                        <!-- Thống kê nhanh lịch sử -->
+                        <div class="p-3 border-bottom border-zinc bg-zinc-950">
+                            <div class="row g-2 text-center font-mono">
+                                <div class="col-6 col-md-3">
+                                    <div class="p-2 border border-zinc bg-zinc-900 rounded-1">
+                                        <div class="small text-zinc-400" style="font-size: 0.72rem;">TỔNG ĐÃ PHÂN LOẠI</div>
+                                        <div class="fs-5 fw-bold text-white" id="histStatTotal">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="p-2 border border-zinc bg-zinc-900 rounded-1">
+                                        <div class="small text-success" style="font-size: 0.72rem;">NGĂN 1: CHÁY / HỮU CƠ</div>
+                                        <div class="fs-5 fw-bold text-success" id="histStatBurnable">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="p-2 border border-zinc bg-zinc-900 rounded-1">
+                                        <div class="small text-info" style="font-size: 0.72rem;">NGĂN 2: THỦY TINH</div>
+                                        <div class="fs-5 fw-bold text-info" id="histStatGlass">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="p-2 border border-zinc bg-zinc-900 rounded-1">
+                                        <div class="small text-warning" style="font-size: 0.72rem;">NGĂN 3: KIM LOẠI</div>
+                                        <div class="fs-5 fw-bold text-warning" id="histStatMetal">0</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bộ lọc danh mục & Tìm kiếm -->
+                            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mt-3 pt-2 border-top border-zinc">
+                                <div class="d-flex flex-wrap gap-1" id="historyFilterGroup">
+                                    <button type="button" class="btn btn-xs btn-white font-mono active" data-filter="all" onclick="filterHistory('all', this)">Tất cả</button>
+                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="burnable" onclick="filterHistory('burnable', this)">Cháy được</button>
+                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="glass" onclick="filterHistory('glass', this)">Thủy tinh</button>
+                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="metal" onclick="filterHistory('metal', this)">Kim loại</button>
+                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="plastic" onclick="filterHistory('plastic', this)">Nhựa PET</button>
+                                </div>
+                                <div class="input-group input-group-sm" style="max-width: 240px;">
+                                    <span class="input-group-text bg-black border-zinc text-zinc-500"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                    <input type="text" id="historySearchInput" class="form-control bg-black border-zinc text-white font-mono" placeholder="Tìm theo tên rác..." oninput="handleHistorySearch(this.value)">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mono-card-body flex-grow-1 overflow-y-auto">
                             <div id="fullHistoryEmpty" class="text-center py-5 text-zinc-500 font-mono">
                                 <i class="fa-solid fa-clock-rotate-left fs-1 mb-2 text-zinc-600"></i>
-                                <div>Chưa có dữ liệu phân loại nào trong phiên làm việc.</div>
+                                <div>Chưa có dữ liệu phân loại nào trong file lịch sử.</div>
                             </div>
                             <div class="row g-2 d-none" id="fullHistoryGrid">
-                                <!-- Populated dynamically -->
+                                <!-- Populated dynamically from classification_history.json -->
                             </div>
                         </div>
                     </div>
@@ -403,15 +527,15 @@
                                 <div class="d-flex gap-2 align-items-center">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text bg-black border-zinc text-zinc-400 font-mono" style="font-size: 0.72rem;">IP ESP32 ACTUATOR</span>
-                                        <input type="text" id="actuatorIpInput" class="form-control bg-black border-zinc text-white font-mono" placeholder="http://192.168.1.10" value="http://192.168.1.10" style="font-size: 0.8rem;">
+                                        <input type="text" id="actuatorIpInput" class="form-control bg-black border-zinc text-white font-mono" placeholder="http://172.16.0.116" value="http://172.16.0.116" style="font-size: 0.8rem;">
                                     </div>
                                     <button type="button" class="btn btn-white btn-sm text-nowrap" id="btnConnectActuator" onclick="connectActuator()">
                                         <i class="fa-solid fa-plug me-1"></i> Kết nối
                                     </button>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top border-zinc" style="font-size: 0.7rem;">
-                                    <span class="text-zinc-400 font-mono" id="actuatorConnectionStatus"><i class="fa-solid fa-circle-dot text-zinc-600 me-1"></i> Sẵn sàng kết nối (http://192.168.1.10)</span>
-                                    <span class="text-zinc-500 font-mono">MG995: 180° | 28BYJ-48: 4 Ngăn | LCD: 1602A (0x3F)</span>
+                                    <span class="text-zinc-400 font-mono" id="actuatorConnectionStatus"><i class="fa-solid fa-circle-dot text-zinc-600 me-1"></i> Sẵn sàng kết nối (http://172.16.0.116)</span>
+                                    <span class="text-zinc-500 font-mono">MG996R 360°: Xoay mâm [G18] | MG995 180°: Hất rác ms [G19] | LCD: 1602 (0x3F)</span>
                                 </div>
                             </div>
 
@@ -491,14 +615,15 @@
                                                     <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Thủy tinh')">Xoay tới</button>
                                                 </div>
                                             </div>
-                                            <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
+                                            <div class="d-flex justify-content-between align-items-center p-2 border border-warning rounded-1 bg-black small">
                                                 <div>
-                                                    <span class="text-white fw-medium">Ngăn 3: Kim loại & vỏ lon</span>
-                                                    <span class="text-zinc-500 small ms-1">(Metal / Lon nhôm & Sắt)</span>
+                                                    <span class="text-warning fw-medium">Ngăn 3: Kim loại & vỏ lon</span>
+                                                    <span class="text-zinc-500 small ms-1">(180° - Canh Đi/Về riêng)</span>
                                                 </div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="font-mono text-zinc-300">Góc 180°</span>
-                                                    <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(180, 'Kim loại')">Xoay tới</button>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <button type="button" class="btn btn-outline-warning btn-xs py-0 px-2 font-mono" onclick="testActuatorCmd('rotate_3_fwd')">Quay đi</button>
+                                                    <button type="button" class="btn btn-outline-info btn-xs py-0 px-2 font-mono" onclick="testActuatorCmd('rotate_3_rev')">Quay về</button>
+                                                    <button type="button" class="btn btn-outline-mono btn-xs py-0 px-2" onclick="rotateToAngle(180, 'Kim loại')">Toàn bộ</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 border border-zinc bg-black rounded-1 small">
@@ -691,10 +816,210 @@
                 <!-- TAB 5: SETTINGS -->
                 <div id="viewSettings" class="nav-view d-none h-100">
                     <div class="mono-card h-100 d-flex flex-column">
-                        <div class="mono-card-header d-flex align-items-center justify-content-between">
-                            <span class="card-title">CẤU HÌNH HỆ THỐNG & TRỌNG SỐ THUẬT TOÁN</span>
+                        <div class="mono-card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <span class="card-title">CẤU HÌNH THỜI GIAN HIỆU CHUẨN (±5ms) & ĐỒNG BỘ PHẦN CỨNG</span>
+                            <span class="badge border border-zinc-700 text-zinc-400 font-mono" id="settingsSaveStatus">LƯU TRỰC TIẾP VÀO FILE</span>
                         </div>
                         <div class="mono-card-body flex-grow-1 overflow-y-auto">
+
+                            <!-- CARD 1: HIỆU CHUẨN THỜI GIAN CHẤP HÀNH (BƯỚC ±5ms) -->
+                            <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
+                                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3 border-bottom border-zinc pb-2">
+                                    <div>
+                                        <div class="fw-semibold text-white d-flex align-items-center gap-2">
+                                            <i class="fa-solid fa-sliders text-zinc-300"></i> Hiệu Chuẩn Thời Gian Vận Hành (Bước Tinh Chỉnh ±5ms)
+                                        </div>
+                                        <div class="text-zinc-500 font-mono small">Tất cả thay đổi lưu trực tiếp vào <code>actuator_settings.json</code> & đồng bộ Flash NVS của ESP32.</div>
+                                    </div>
+                                    <button type="button" class="btn btn-white btn-sm" onclick="saveActuatorSettingsFromUi()">
+                                        <i class="fa-solid fa-floppy-disk me-1"></i> Lưu Cài Đặt Vào File & Mạch
+                                    </button>
+                                </div>
+
+                                <!-- Nhóm 1: Servo 360 độ (MG996R) xoay mâm 4 ngăn -->
+                                <div class="mb-4">
+                                    <div class="text-zinc-400 font-mono small fw-bold mb-2">
+                                        <i class="fa-solid fa-arrows-spin text-zinc-400 me-1"></i> 1. SERVO 360° XOAY MÂM (GPIO 18)
+                                    </div>
+                                    <div class="row g-3">
+                                        <!-- Thời gian quay 90 độ (Ngăn 2 & Ngăn 4) -->
+                                        <div class="col-12 col-md-4">
+                                            <div class="p-2 border border-zinc rounded-1 bg-black h-100 d-flex flex-column justify-content-between">
+                                                <div>
+                                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                                        <label class="small text-zinc-300 font-mono fw-bold mb-0">QUAY 90° (Ngăn 2 & 4)</label>
+                                                        <span class="badge border border-zinc text-zinc-400 font-mono" style="font-size: 0.65rem;">Góc vuông</span>
+                                                    </div>
+                                                    <div class="input-group input-group-sm mb-1">
+                                                        <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('rotate_time_90_ms', -5)">-5ms</button>
+                                                        <input type="number" id="cfg_rotate_time_90_ms" class="form-control bg-zinc-900 border-zinc text-center text-white font-mono fw-bold" value="950" step="5" min="50" max="5000">
+                                                        <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('rotate_time_90_ms', 5)">+5ms</button>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <button type="button" class="btn btn-outline-mono btn-xs w-100 font-mono mb-1" onclick="testActuatorCmd('bin2')">
+                                                        <i class="fa-solid fa-rotate-right me-1"></i> Test Ngăn 2 (90°)
+                                                    </button>
+                                                    <div class="text-zinc-500 font-mono" style="font-size: 0.65rem;">UART: <code>+</code> / <code>-</code></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Thời gian quay 180 độ Đi (Ngăn 3) -->
+                                        <div class="col-12 col-md-4">
+                                            <div class="p-2 border border-warning rounded-1 bg-black h-100 d-flex flex-column justify-content-between">
+                                                <div>
+                                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                                        <label class="small text-warning font-mono fw-bold mb-0">NGĂN 3: QUAY ĐI 180°</label>
+                                                        <span class="badge bg-warning text-black font-mono" style="font-size: 0.65rem;">Đi tới 180°</span>
+                                                    </div>
+                                                    <div class="input-group input-group-sm mb-1">
+                                                        <button class="btn btn-outline-warning px-2" type="button" onclick="stepTiming('rotate_time_180_fwd_ms', -5)">-5ms</button>
+                                                        <input type="number" id="cfg_rotate_time_180_fwd_ms" class="form-control bg-zinc-900 border-warning text-center text-warning font-mono fw-bold" value="1850" step="5" min="100" max="10000">
+                                                        <button class="btn btn-outline-warning px-2" type="button" onclick="stepTiming('rotate_time_180_fwd_ms', 5)">+5ms</button>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <button type="button" class="btn btn-outline-warning btn-xs w-100 font-mono mb-1" onclick="testActuatorCmd('rotate_3_fwd')">
+                                                        <i class="fa-solid fa-arrow-right me-1"></i> Test Chỉ Quay Đi
+                                                    </button>
+                                                    <div class="text-zinc-500 font-mono" style="font-size: 0.65rem;">UART: <code>7</code> / <code>8</code> | Test: <code>g</code></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Thời gian quay 180 độ Về (Ngăn 3) -->
+                                        <div class="col-12 col-md-4">
+                                            <div class="p-2 border border-info rounded-1 bg-black h-100 d-flex flex-column justify-content-between">
+                                                <div>
+                                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                                        <label class="small text-info font-mono fw-bold mb-0">NGĂN 3: QUAY VỀ HOME</label>
+                                                        <span class="badge bg-info text-black font-mono" style="font-size: 0.65rem;">Về lại 0°</span>
+                                                    </div>
+                                                    <div class="input-group input-group-sm mb-1">
+                                                        <button class="btn btn-outline-info px-2" type="button" onclick="stepTiming('rotate_time_180_rev_ms', -5)">-5ms</button>
+                                                        <input type="number" id="cfg_rotate_time_180_rev_ms" class="form-control bg-zinc-900 border-info text-center text-info font-mono fw-bold" value="1955" step="5" min="100" max="10000">
+                                                        <button class="btn btn-outline-info px-2" type="button" onclick="stepTiming('rotate_time_180_rev_ms', 5)">+5ms</button>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <button type="button" class="btn btn-outline-info btn-xs w-100 font-mono mb-1" onclick="testActuatorCmd('rotate_3_rev')">
+                                                        <i class="fa-solid fa-arrow-left me-1"></i> Test Chỉ Quay Về
+                                                    </button>
+                                                    <div class="text-zinc-500 font-mono" style="font-size: 0.65rem;">UART: <code>9</code> / <code>0</code> | Test: <code>b</code></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <!-- Nhóm 2: Servo 180 độ (MG995) hất rác lướt êm theo ms -->
+                                <div class="mb-4">
+                                    <div class="text-zinc-400 font-mono small fw-bold mb-2">
+                                        <i class="fa-solid fa-door-open text-zinc-400 me-1"></i> 2. SERVO 180° HẤT RÁC LƯỚT ÊM (GPIO 19 / D19)
+                                    </div>
+                                    <div class="row g-3">
+                                        <!-- Thời gian lướt mở hất rác -->
+                                        <div class="col-12 col-md-3">
+                                            <label class="small text-zinc-400 font-mono d-block mb-1">Thời gian mở nắp</label>
+                                            <div class="input-group input-group-sm">
+                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_fwd_time_ms', -5)">-5ms</button>
+                                                <input type="number" id="cfg_dump_fwd_time_ms" class="form-control bg-black border-zinc text-center text-white font-mono" value="500" step="5" min="50" max="5000">
+                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_fwd_time_ms', 5)">+5ms</button>
+                                            </div>
+                                            <span class="text-zinc-500 font-mono" style="font-size: 0.68rem;">UART: <code>[</code> / <code>]</code></span>
+                                        </div>
+
+                                        <!-- Thời gian lướt đóng nắp -->
+                                        <div class="col-12 col-md-3">
+                                            <label class="small text-zinc-400 font-mono d-block mb-1">Thời gian đóng nắp</label>
+                                            <div class="input-group input-group-sm">
+                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rev_time_ms', -5)">-5ms</button>
+                                                <input type="number" id="cfg_dump_rev_time_ms" class="form-control bg-black border-zinc text-center text-white font-mono" value="500" step="5" min="50" max="5000">
+                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rev_time_ms', 5)">+5ms</button>
+                                            </div>
+                                            <span class="text-zinc-500 font-mono" style="font-size: 0.68rem;">UART: <code>;</code> / <code>'</code></span>
+                                        </div>
+
+                                        <!-- Góc nghỉ đóng nắp (Chống quay lố 0 độ) -->
+                                        <div class="col-12 col-md-3">
+                                            <label class="small text-warning font-mono d-block mb-1">Góc nghỉ đóng (chống lố)</label>
+                                            <div class="input-group input-group-sm">
+                                                <button class="btn btn-outline-warning px-2" type="button" onclick="stepTiming('dump_rest_angle', -1)">-1°</button>
+                                                <input type="number" id="cfg_dump_rest_angle" class="form-control bg-black border-warning text-center text-warning font-mono fw-bold" value="0" step="1" min="0" max="180">
+                                                <button class="btn btn-outline-warning px-2" type="button" onclick="stepTiming('dump_rest_angle', 1)">+1°</button>
+                                            </div>
+                                            <span class="text-zinc-500 font-mono" style="font-size: 0.68rem;">UART: <code>,</code> / <code>.</code> (hoặc <code>&lt;</code> / <code>&gt;</code>)</span>
+                                        </div>
+
+                                        <!-- Thời gian giữ mở rác rơi -->
+                                        <div class="col-12 col-md-3">
+                                            <label class="small text-zinc-400 font-mono d-block mb-1">Thời gian chờ rác rơi</label>
+                                            <div class="input-group input-group-sm">
+                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_wait_ms', -50)">-50ms</button>
+                                                <input type="number" id="cfg_dump_wait_ms" class="form-control bg-black border-zinc text-center text-white font-mono" value="1500" step="50" min="200" max="10000">
+                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_wait_ms', 50)">+50ms</button>
+                                            </div>
+                                            <span class="text-zinc-500 font-mono" style="font-size: 0.68rem;">Giữ chắc vị trí nắp mở</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Đảo chiều quay servo hất rác -->
+                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between p-2 mt-3 border border-zinc bg-black rounded-1">
+                                        <div>
+                                            <span class="text-white font-mono small fw-semibold">Đảo chiều quay Servo hất rác:</span>
+                                            <span class="text-zinc-400 font-mono small ms-2" id="cfg_dump_inverted_label">Chiều Thuận (0° -> 90° -> 0°)</span>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-mono btn-sm" onclick="toggleServoDirectionFromUi()">
+                                            <i class="fa-solid fa-repeat me-1"></i> Đảo Chiều (Phím i)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Nút Test Nhanh Cơ Cấu Chấp Hành -->
+                                <div class="pt-2 border-top border-zinc">
+                                    <div class="text-zinc-400 font-mono small mb-2">Test Lệnh Nhanh Tới Mạch:</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-outline-mono btn-sm" onclick="testActuatorCmd('dump')"><i class="fa-solid fa-play me-1"></i> Test Hất Rác (ms)</button>
+                                        <button type="button" class="btn btn-outline-mono btn-sm" onclick="testActuatorCmd('bin1')"><i class="fa-solid fa-arrows-to-dot me-1"></i> Ngăn 1 (0°)</button>
+                                        <button type="button" class="btn btn-outline-mono btn-sm" onclick="testActuatorCmd('bin2')"><i class="fa-solid fa-arrows-to-dot me-1"></i> Ngăn 2 (90°)</button>
+                                        <button type="button" class="btn btn-outline-mono btn-sm" onclick="testActuatorCmd('bin3')"><i class="fa-solid fa-arrows-to-dot me-1"></i> Ngăn 3 (180°)</button>
+                                        <button type="button" class="btn btn-outline-mono btn-sm" onclick="testActuatorCmd('bin4')"><i class="fa-solid fa-arrows-to-dot me-1"></i> Ngăn 4 (-90°)</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CARD 2: CẤU HÌNH & ĐỒNG BỘ CAMERA ESP32-CAM -->
+                            <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
+                                <div class="fw-semibold text-white d-flex align-items-center gap-2 mb-2">
+                                    <i class="fa-solid fa-video text-zinc-300"></i> Cấu Hình Camera ESP32-CAM & Đồng Bộ Khóa Bận
+                                </div>
+                                <div class="row g-3 align-items-end mb-3">
+                                    <div class="col-12 col-md-5">
+                                        <label class="small text-zinc-400 font-mono">Địa chỉ IP / URL ESP32-CAM</label>
+                                        <input type="text" id="cfg_esp32_cam_ip" class="form-control form-control-sm bg-black border-zinc text-white font-mono" placeholder="http://172.16.0.100" value="http://172.16.0.100">
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label class="small text-zinc-400 font-mono">Thời gian chờ Auto-Scan (giây)</label>
+                                        <div class="input-group input-group-sm">
+                                            <button class="btn btn-outline-mono px-2" type="button" onclick="stepCamInterval(-1)">-1s</button>
+                                            <input type="number" id="cfg_auto_scan_interval_sec" class="form-control bg-black border-zinc text-center text-white font-mono" value="3" min="1" max="30">
+                                            <button class="btn btn-outline-mono px-2" type="button" onclick="stepCamInterval(1)">+1s</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-3">
+                                        <button type="button" class="btn btn-white btn-sm w-100" onclick="saveCamSettingsFromUi()">
+                                            <i class="fa-solid fa-check me-1"></i> Lưu Cấu Hình CAM
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="p-2 border border-zinc bg-black rounded-1 font-mono small text-zinc-400">
+                                    <i class="fa-solid fa-shield-halved text-success me-1"></i> <strong>Cơ chế đồng bộ an toàn:</strong> Khi thùng rác đang thực hiện chu trình xoay mâm hoặc hất rác (<code>is_busy = true</code>), ESP32-CAM sẽ tự động tạm ngưng quét chụp để chống va đập cơ khí. Sau khi nắp đã đóng an toàn, hệ thống chờ thêm số giây đã định ở trên rồi mới quét rác tiếp theo.
+                                </div>
+                            </div>
+
+                            <!-- CARD 3: TRỌNG SỐ THUẬT TOÁN AI LATE FUSION -->
                             <div class="p-3 border border-zinc bg-zinc-900 rounded-1 mb-3">
                                 <div class="fw-semibold text-white mb-2">Trọng số Late Fusion (Soft Voting)</div>
                                 <div class="row g-2 align-items-center mb-3">
@@ -721,6 +1046,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Main JS -->
-    <script src="/static/js/main.js?v=6.0"></script>
+    <script src="/static/js/main.js?v=8.1"></script>
 </body>
 </html>

@@ -1,8 +1,15 @@
 import base64
+import datetime
 import io
 import json
 import os
 from pathlib import Path
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
 from PIL import Image
 from flask import Flask, render_template, request, jsonify, send_from_directory
 
@@ -315,19 +322,131 @@ def serve_firmware(filename):
 
 
 
-import urllib.request
-import urllib.error
-import urllib.parse
-import threading
-
-# CẤU HÌNH GỬI TÍN HIỆU ĐIỀU KHIỂN SANG ESP32 ACTUATOR (SERVO 180° + STEPPER 4 HƯỚNG + LCD 1602A)
 # ==============================================================================
-ENABLE_ESP32_ACTUATOR = True  # Kích hoạt điều khiển ESP32 Thường
-ESP32_ACTUATOR_IP = "http://172.16.3.205"  # IP thực tế của ESP32 Actuator tại cafe/wifi hiện tại
+# QUẢN LÝ LƯU TRỮ TRỰC TIẾP VÀO FILE: CÀI ĐẶT THIẾT BỊ & LỊCH SỬ PHÂN LOẠI
+# ==============================================================================
+SETTINGS_FILE = BASE_DIR / 'actuator_settings.json'
+HISTORY_FILE = BASE_DIR / 'classification_history.json'
+
+DEFAULT_SETTINGS = {
+    "enabled": True,
+    "actuator_ip": "http://172.16.0.116",
+    "esp32_cam_ip": "http://172.16.0.100",
+    "auto_scan_interval_sec": 3,
+    "rotate_time_90_ms": 950,
+    "rotate_time_180_fwd_ms": 1850,
+    "rotate_time_180_rev_ms": 1955,
+    "dump_fwd_time_ms": 500,
+    "dump_rev_time_ms": 500,
+    "dump_wait_ms": 1500,
+    "dump_inverted": False
+}
+
+def load_actuator_settings():
+    if not SETTINGS_FILE.exists():
+        save_actuator_settings(DEFAULT_SETTINGS)
+        return dict(DEFAULT_SETTINGS)
+    try:
+        with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            merged = dict(DEFAULT_SETTINGS)
+            merged.update(data)
+            return merged
+    except Exception as e:
+        print(f"[SETTINGS] Lỗi đọc file {SETTINGS_FILE}: {e}")
+        return dict(DEFAULT_SETTINGS)
+
+def save_actuator_settings(data):
+    try:
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"[SETTINGS] Đã lưu cài đặt trực tiếp vào file: {SETTINGS_FILE}")
+    except Exception as e:
+        print(f"[SETTINGS] Lỗi ghi file {SETTINGS_FILE}: {e}")
+
+# Khởi tạo cài đặt từ file
+ACTUATOR_SETTINGS = load_actuator_settings()
+ENABLE_ESP32_ACTUATOR = ACTUATOR_SETTINGS.get('enabled', True)
+ESP32_ACTUATOR_IP = ACTUATOR_SETTINGS.get('actuator_ip', "http://172.16.0.116")
+ESP32_CAM_IP = ACTUATOR_SETTINGS.get('esp32_cam_ip', "http://172.16.0.100")
+
+def load_classification_history():
+    if not HISTORY_FILE.exists():
+        return []
+    try:
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[HISTORY] Lỗi đọc file {HISTORY_FILE}: {e}")
+        return []
+
+def save_classification_history(records):
+    try:
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(records, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[HISTORY] Lỗi ghi file {HISTORY_FILE}: {e}")
+
+def create_thumbnail_b64(pil_image):
+    if pil_image is None:
+        return ""
+    try:
+        thumb = pil_image.copy()
+        thumb.thumbnail((120, 120))
+        if thumb.mode in ("RGBA", "P"):
+            thumb = thumb.convert("RGB")
+        buf = io.BytesIO()
+        thumb.save(buf, format="JPEG", quality=75)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode('ascii')
+    except Exception as e:
+        print(f"[HISTORY] Lỗi tạo thumbnail: {e}")
+        return ""
+
+def append_to_history(result_dict, pil_image=None, source="webcam"):
+    try:
+        now = datetime.datetime.now()
+        thumb_b64 = create_thumbnail_b64(pil_image)
+        
+        fusion_info = result_dict.get('fusion_info', {})
+        resnet_info = fusion_info.get('resnet', {})
+        yolo_info = fusion_info.get('yolo', {})
+        
+        record = {
+            "id": f"scan_{now.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}",
+            "timestamp": now.strftime('%Y-%m-%d %H:%M:%S'),
+            "time_display": now.strftime('%H:%M:%S'),
+            "date_display": now.strftime('%d/%m/%Y'),
+            "class": result_dict.get('class', 'unknown'),
+            "name_vi": result_dict.get('name_vi', 'Chưa rõ'),
+            "category": result_dict.get('category', 'Chưa xác định'),
+            "badge_color": result_dict.get('badge_color', '#10b981'),
+            "bin": result_dict.get('bin', 'Ngăn 1'),
+            "bin_number": result_dict.get('bin_number', 1),
+            "bin_color": result_dict.get('bin_color', '#22c55e'),
+            "confidence": result_dict.get('confidence', 0),
+            "source": source,
+            "models_agree": fusion_info.get('models_agree', True),
+            "resnet_pred": resnet_info.get('name_vi', ''),
+            "resnet_conf": resnet_info.get('confidence', 0),
+            "yolo_pred": yolo_info.get('name_vi', ''),
+            "yolo_conf": yolo_info.get('confidence', 0),
+            "thumb": thumb_b64
+        }
+        
+        records = load_classification_history()
+        records.insert(0, record)
+        # Giữ tối đa 300 lịch sử gần nhất để file nhẹ và nhanh
+        if len(records) > 300:
+            records = records[:300]
+        save_classification_history(records)
+        return record
+    except Exception as e:
+        print(f"[HISTORY] Lỗi thêm lịch sử: {e}")
+        return None
 
 def _dispatch_esp32_actuator_req(url):
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
         with urllib.request.urlopen(req, timeout=3.0) as resp:
             print(f"[ESP32-ACTUATOR] >>> Gửi lệnh thành công ({url}) - HTTP {resp.getcode()}")
     except Exception as err:
@@ -337,8 +456,9 @@ def send_command_to_esp32_actuator(label, display_name=None):
     """
     Gửi tín hiệu điều khiển bất đồng bộ sang ESP32 Thường:
     1. Hiển thị loại rác và số ngăn lên màn hình LCD 1602
-    2. Động cơ bước 28BYJ-48 xoay thùng rác về ngăn tương ứng (0°, 90°, 180°, 270°)
-    3. Servo MG995 mở nắp 180° để rác rơi vào, sau đó đóng nắp về 0°
+    2. Servo 360 xoay mâm về ngăn tương ứng (Ngăn 1: 0°, Ngăn 2: 90°, Ngăn 3: 180°, Ngăn 4: -90°)
+    3. Servo 180 hất rác lướt êm theo ms (mở -> đợi 1.5s -> đóng về vị trí cũ)
+    4. Servo 360 xoay ngược lại về Home để chống xoắn dây
     """
     if not ENABLE_ESP32_ACTUATOR:
         return None
@@ -361,6 +481,8 @@ def send_command_to_esp32_actuator(label, display_name=None):
 def handle_predict():
     try:
         raw_res = None
+        image = None
+        source = 'webcam'
 
         # 1. Handle file upload
         if 'image' in request.files:
@@ -368,6 +490,7 @@ def handle_predict():
             if file.filename != '':
                 image = Image.open(file.stream)
                 raw_res = predict(image)
+                source = 'upload'
 
         # 2. Handle base64 from webcam (JSON body)
         if raw_res is None:
@@ -379,12 +502,14 @@ def handle_predict():
                 image_bytes = base64.b64decode(raw_base64)
                 image = Image.open(io.BytesIO(image_bytes))
                 raw_res = predict(image)
+                source = 'webcam'
 
         # 3. Handle raw binary JPEG sent directly from ESP32-CAM HTTP POST
         if raw_res is None and request.data and len(request.data) > 0:
             try:
                 image = Image.open(io.BytesIO(request.data))
                 raw_res = predict(image)
+                source = 'esp32_cam'
             except Exception:
                 pass
 
@@ -397,6 +522,9 @@ def handle_predict():
         best_label = formatted.get('class')
         if best_label:
             send_command_to_esp32_actuator(best_label, formatted.get('name_vi'))
+
+        # Tự động lưu vào lịch sử phân loại trực tiếp trên file JSON
+        append_to_history(formatted, pil_image=image, source=source)
 
         return jsonify(formatted)
     except Exception as e:
@@ -465,6 +593,9 @@ def esp32_capture():
             if actuator_res:
                 result['actuator'] = actuator_res
 
+        # Tự động lưu vào lịch sử phân loại trực tiếp trên file JSON
+        append_to_history(result, pil_image=image, source='esp32_cam')
+
         # Include base64 of captured frame so UI can preview it
         result['captured_image'] = 'data:image/jpeg;base64,' + base64.b64encode(image_data).decode('ascii')
         return jsonify(result)
@@ -474,19 +605,133 @@ def esp32_capture():
         return jsonify({'error': f'Lỗi khi xử lý ảnh từ ESP32-CAM: {str(e)}'}), 500
 
 
+@app.route('/api/actuator/settings', methods=['GET', 'POST'])
+def api_actuator_settings():
+    """Lấy hoặc cập nhật thông số hiệu chuẩn thời gian và IP của Actuator / CAM trực tiếp vào file JSON."""
+    global ACTUATOR_SETTINGS, ENABLE_ESP32_ACTUATOR, ESP32_ACTUATOR_IP, ESP32_CAM_IP
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        current = load_actuator_settings()
+        
+        # Cập nhật các trường cấu hình
+        for key in ['enabled', 'actuator_ip', 'esp32_cam_ip', 'auto_scan_interval_sec',
+                    'rotate_time_90_ms', 'rotate_time_180_fwd_ms', 'rotate_time_180_rev_ms',
+                    'dump_fwd_time_ms', 'dump_rev_time_ms', 'dump_wait_ms', 'dump_inverted',
+                    'dump_rest_angle', 'dump_target_angle']:
+            if key in data:
+                current[key] = data[key]
+                
+        # Lưu trực tiếp vào file actuator_settings.json
+        save_actuator_settings(current)
+        ACTUATOR_SETTINGS = current
+        ENABLE_ESP32_ACTUATOR = current.get('enabled', True)
+        ESP32_ACTUATOR_IP = current.get('actuator_ip', "http://172.16.0.116")
+        ESP32_CAM_IP = current.get('esp32_cam_ip', "http://172.16.0.100")
+        
+        # Đồng bộ trực tiếp sang phần cứng ESP32 Actuator (lưu luôn vào NVS Flash của ESP32)
+        esp_sync_info = {'synced': False}
+        if ENABLE_ESP32_ACTUATOR and ESP32_ACTUATOR_IP:
+            try:
+                inv_val = 1 if current.get('dump_inverted', False) else 0
+                calib_url = (
+                    f"{ESP32_ACTUATOR_IP.rstrip('/')}/calib?"
+                    f"t90={int(current.get('rotate_time_90_ms', 950))}&"
+                    f"t180f={int(current.get('rotate_time_180_fwd_ms', 1850))}&"
+                    f"t180r={int(current.get('rotate_time_180_rev_ms', 1955))}&"
+                    f"dumpf={int(current.get('dump_fwd_time_ms', 500))}&"
+                    f"dumpr={int(current.get('dump_rev_time_ms', 500))}&"
+                    f"dumpw={int(current.get('dump_wait_ms', 1500))}&"
+                    f"dumprest={int(current.get('dump_rest_angle', 0))}&"
+                    f"dumptgt={int(current.get('dump_target_angle', 90))}&"
+                    f"inv={inv_val}&save=1"
+                )
+                req = urllib.request.Request(calib_url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
+                with urllib.request.urlopen(req, timeout=2.5) as resp:
+                    raw = resp.read().decode('utf-8')
+                    esp_sync_info = {'synced': True, 'response': json.loads(raw) if raw.startswith('{') else raw}
+                    print(f"[SETTINGS] Đã đồng bộ trực tiếp sang ESP32 Actuator và Flash NVS: {calib_url}")
+            except Exception as sync_err:
+                esp_sync_info = {'synced': False, 'error': str(sync_err)}
+                print(f"[SETTINGS CẢNH BÁO] Không thể đồng bộ trực tiếp sang ESP32 Actuator: {sync_err}")
+
+        return jsonify({
+            'status': 'ok',
+            'settings': current,
+            'esp_sync': esp_sync_info
+        })
+
+    # GET
+    settings = load_actuator_settings()
+    live_status = None
+    if settings.get('enabled', True):
+        try:
+            url = f"{settings.get('actuator_ip', 'http://172.16.0.116').rstrip('/')}/status"
+            req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
+            with urllib.request.urlopen(req, timeout=1.5) as resp:
+                live_status = json.loads(resp.read().decode('utf-8'))
+        except Exception:
+            live_status = None
+
+    return jsonify({
+        'status': 'ok',
+        'settings': settings,
+        'live_esp32': live_status
+    })
+
+
+@app.route('/api/history', methods=['GET', 'DELETE'])
+def api_history():
+    """Lấy danh sách hoặc xóa lịch sử phân loại đã lưu trong file classification_history.json."""
+    if request.method == 'DELETE':
+        item_id = request.args.get('id')
+        if item_id:
+            records = load_classification_history()
+            records = [r for r in records if r.get('id') != item_id]
+            save_classification_history(records)
+            return jsonify({'status': 'ok', 'message': f'Đã xóa mục {item_id}', 'total': len(records)})
+        else:
+            save_classification_history([])
+            return jsonify({'status': 'ok', 'message': 'Đã xóa toàn bộ lịch sử phân loại', 'total': 0})
+
+    # GET
+    records = load_classification_history()
+    total = len(records)
+    cat_burnable = sum(1 for r in records if 'cháy' in r.get('category', '').lower() or 'hữu cơ' in r.get('category', '').lower() or r.get('bin_number') == 1)
+    cat_glass = sum(1 for r in records if 'thủy tinh' in r.get('name_vi', '').lower() or r.get('bin_number') == 2)
+    cat_metal = sum(1 for r in records if 'kim loại' in r.get('name_vi', '').lower() or r.get('bin_number') == 3)
+    cat_plastic = sum(1 for r in records if 'nhựa' in r.get('name_vi', '').lower() or r.get('bin_number') == 4)
+
+    return jsonify({
+        'status': 'ok',
+        'total': total,
+        'records': records,
+        'stats': {
+            'total': total,
+            'burnable': cat_burnable,
+            'glass': cat_glass,
+            'metal': cat_metal,
+            'plastic': cat_plastic
+        }
+    })
+
+
 @app.route('/api/actuator/config', methods=['GET', 'POST'])
 def actuator_config():
     """Get or update ESP32 Actuator configuration."""
     global ENABLE_ESP32_ACTUATOR, ESP32_ACTUATOR_IP
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
+        current = load_actuator_settings()
         if 'enabled' in data:
             ENABLE_ESP32_ACTUATOR = bool(data['enabled'])
+            current['enabled'] = ENABLE_ESP32_ACTUATOR
         if 'ip' in data and data['ip'].strip():
             ip = data['ip'].strip()
             if not ip.startswith('http://') and not ip.startswith('https://'):
                 ip = 'http://' + ip
             ESP32_ACTUATOR_IP = ip
+            current['actuator_ip'] = ip
+        save_actuator_settings(current)
         return jsonify({
             'status': 'ok',
             'enabled': ENABLE_ESP32_ACTUATOR,
@@ -499,18 +744,27 @@ def actuator_config():
     })
 
 
+_actuator_status_cache = {'time': 0, 'data': None}
+
 @app.route('/api/actuator/status', methods=['GET'])
 def actuator_status():
-    """Fetch status from ESP32 Actuator board."""
+    """Fetch status from ESP32 Actuator board (với 250ms debounce cache chống nghẽn socket)."""
     if not ENABLE_ESP32_ACTUATOR:
         return jsonify({'online': False, 'enabled': False, 'message': 'Actuator disabled'})
+    
+    now = time.time()
+    if now - _actuator_status_cache['time'] < 0.25 and _actuator_status_cache['data'] is not None:
+        return jsonify(_actuator_status_cache['data'])
+
     try:
         url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/status"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0'})
-        with urllib.request.urlopen(req, timeout=2.0) as resp:
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
+        with urllib.request.urlopen(req, timeout=1.8) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             data['enabled'] = True
             data['ip'] = ESP32_ACTUATOR_IP
+            _actuator_status_cache['time'] = now
+            _actuator_status_cache['data'] = data
             return jsonify(data)
     except Exception as e:
         return jsonify({
@@ -532,16 +786,23 @@ def actuator_control():
             name = data.get('name', '')
             label = data.get('label', 'manual')
             url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/action?bin={bin_num}&label={label}&name={urllib.parse.quote(name)}"
+        elif action == 'dump':
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?dump=1"
+        elif action == 'invert':
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?invert=1"
         elif action == 'servo':
             angle = int(data.get('angle', 0))
             url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?angle={angle}"
         elif action == 'rotate':
             bin_num = int(data.get('bin', 1))
             url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/rotate?bin={bin_num}"
+        elif action == 'rotate_test':
+            step = data.get('step', '3_fwd')
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/rotate?test={step}"
         else:
             return jsonify({'error': 'Hành động không hợp lệ'}), 400
 
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
         with urllib.request.urlopen(req, timeout=2.5) as resp:
             raw = resp.read().decode('utf-8')
             return jsonify({'status': 'ok', 'response': json.loads(raw) if raw.startswith('{') else raw})
