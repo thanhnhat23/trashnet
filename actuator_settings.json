@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "actuator_ip": "http://172.31.99.162",
+  "actuator_ip": "http://172.16.0.116",
   "esp32_cam_ip": "http://172.16.0.100",
   "auto_scan_interval_sec": 3,
   "rotate_time_90_ms": 950,

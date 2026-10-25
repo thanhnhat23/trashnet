@@ -105,6 +105,20 @@ print(f"YOLO11n-cls loaded from: {YOLO_MODEL_PATH}")
 print("=" * 60)
 
 
+def reload_models():
+    """Tải lại trọng số mới nhất của ResNet18 và YOLO11n sau khi train."""
+    global resnet_model, yolo_model
+    try:
+        resnet_model = load_resnet()
+        yolo_model = load_yolo()
+        print("Reloaded latest AI model weights successfully!")
+        return True
+    except Exception as e:
+        print(f"Error reloading models: {e}")
+        return False
+
+
+
 # ============================================================
 # SOFT VOTING WEIGHTS
 # ============================================================
