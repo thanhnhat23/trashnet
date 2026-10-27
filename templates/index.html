@@ -72,11 +72,11 @@
             <div class="p-3 border-top border-subtle font-mono text-muted" style="font-size: 0.72rem;">
                 <div class="d-flex align-items-center justify-content-between mb-1">
                     <span>MÔ HÌNH:</span>
-                    <span class="text-white fw-semibold">ResNet18 + YOLO11n</span>
+                    <span class="text-white fw-semibold" id="sidebarActiveModel">Fusion</span>
                 </div>
                 <div class="d-flex align-items-center justify-content-between">
-                    <span>ĐỘ CHÍNH XÁC:</span>
-                    <span class="text-white fw-bold" id="footerAccNum">99.37%</span>
+                    <span>TRẠNG THÁI:</span>
+                    <span class="text-white fw-semibold">Sẵn sàng</span>
                 </div>
             </div>
         </aside>
@@ -152,8 +152,8 @@
                                             </div>
 
                                             <div class="d-flex align-items-center justify-content-between pt-2 mt-2 border-top border-subtle" style="font-size: 0.72rem;">
-                                                <span class="text-secondary font-mono" id="esp32StatusText"><i class="fa-solid fa-circle-dot text-muted me-1"></i> CAM: Chưa kết nối</span>
-                                                <span class="text-secondary font-mono" id="actuatorStatusTextMain"><i class="fa-solid fa-circle-check text-white me-1"></i> Thùng: 172.16.0.116</span>
+                                                <span class="text-secondary font-mono" id="esp32StatusText"><i class="fa-solid fa-circle-dot text-muted me-1"></i> Camera: Đang chờ</span>
+                                                <span class="text-secondary font-mono" id="actuatorStatusTextMain"><i class="fa-solid fa-circle-check text-white me-1"></i> Thùng rác: Sẵn sàng</span>
                                             </div>
                                         </div>
 
@@ -218,32 +218,32 @@
                                         <div class="bin-control-card">
                                             <div class="d-flex align-items-center justify-content-between mb-2">
                                                 <span class="small font-mono text-secondary fw-semibold">
-                                                    <i class="fa-solid fa-gamepad me-1"></i> QUAY THÙNG NHANH
+                                                    <i class="fa-solid fa-gamepad me-1"></i> ĐIỀU KHIỂN XOAY THÙNG
                                                 </span>
                                                 <span class="badge border border-subtle text-secondary font-mono" style="font-size: 0.65rem;" id="quickActuatorStatusBadge">SẴN SÀNG</span>
                                             </div>
 
                                             <div class="row g-2 mb-2">
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(1)" id="btnQuickBin1" title="Quay tới Ngăn 1 (0°)">
+                                                    <div class="bin-btn" onclick="triggerManualBin(1)" id="btnQuickBin1" title="Ngăn 1">
                                                         <div class="bin-num font-mono">NGĂN 1</div>
                                                         <div class="bin-label text-truncate">Cháy được</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(2)" id="btnQuickBin2" title="Quay tới Ngăn 2 (90°)">
+                                                    <div class="bin-btn" onclick="triggerManualBin(2)" id="btnQuickBin2" title="Ngăn 2">
                                                         <div class="bin-num font-mono">NGĂN 2</div>
                                                         <div class="bin-label text-truncate">Thủy tinh</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(3)" id="btnQuickBin3" title="Quay tới Ngăn 3 (180°)">
+                                                    <div class="bin-btn" onclick="triggerManualBin(3)" id="btnQuickBin3" title="Ngăn 3">
                                                         <div class="bin-num font-mono">NGĂN 3</div>
                                                         <div class="bin-label text-truncate">Kim loại</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(4)" id="btnQuickBin4" title="Quay tới Ngăn 4 (-90°)">
+                                                    <div class="bin-btn" onclick="triggerManualBin(4)" id="btnQuickBin4" title="Ngăn 4">
                                                         <div class="bin-num font-mono">NGĂN 4</div>
                                                         <div class="bin-label text-truncate">Nhựa PET</div>
                                                     </div>
@@ -261,7 +261,7 @@
                                                 </div>
 
                                                 <button type="button" class="btn btn-outline-mono btn-sm font-mono" onclick="triggerManualDump()" id="btnQuickDump" title="Mở nắp hất rác" style="font-size: 0.75rem;">
-                                                    <i class="fa-solid fa-eject me-1"></i> Hất Rác [D]
+                                                    <i class="fa-solid fa-eject me-1"></i> Hất rác
                                                 </button>
                                             </div>
                                         </div>
@@ -280,6 +280,24 @@
                                         <span>Kết Quả Phân Loại AI</span>
                                     </div>
                                     <span class="badge border border-subtle text-secondary font-mono" id="engineStatus">SẴN SÀNG</span>
+                                </div>
+
+                                <!-- Model Selection Segmented Switcher -->
+                                <div class="px-3 py-2 border-bottom border-subtle d-flex align-items-center justify-content-between gap-2" style="background: rgba(255, 255, 255, 0.02);">
+                                    <span class="small font-mono text-secondary" style="font-size: 0.75rem;">
+                                        <i class="fa-solid fa-layer-group me-1"></i> Mô hình:
+                                    </span>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Chọn mô hình AI">
+                                        <button type="button" class="btn btn-outline-mono font-mono active" id="btnModelFusion" onclick="switchAiModel('fusion')">
+                                            <i class="fa-solid fa-arrows-split-up-and-left me-1"></i> Fusion
+                                        </button>
+                                        <button type="button" class="btn btn-outline-mono font-mono" id="btnModelResnet" onclick="switchAiModel('resnet')">
+                                            <i class="fa-solid fa-network-wired me-1"></i> ResNet
+                                        </button>
+                                        <button type="button" class="btn btn-outline-mono font-mono" id="btnModelYolo" onclick="switchAiModel('yolo')">
+                                            <i class="fa-solid fa-bolt-lightning me-1"></i> YOLO
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div class="clean-card-body flex-grow-1 overflow-y-auto d-flex flex-column gap-3">
@@ -344,8 +362,8 @@
                                         <!-- 4-Class Probability Breakdown -->
                                         <div class="prob-card">
                                             <div class="p-2 px-3 border-bottom border-subtle d-flex justify-content-between align-items-center" style="background: rgba(255, 255, 255, 0.02);">
-                                                <span class="small font-mono text-secondary fw-semibold">PHÂN PHỐI XÁC SUẤT 4 LỚP (SOFT VOTING)</span>
-                                                <span class="small font-mono text-muted">% ĐỘ TIN CẬY</span>
+                                                <span class="small font-mono text-secondary fw-semibold" id="probTableTitle">PHÂN PHỐI XÁC SUẤT</span>
+                                                <span class="small font-mono text-muted">ĐỘ TIN CẬY</span>
                                             </div>
                                             <table class="table prob-table table-dark">
                                                 <tbody id="probabilityTableBody">
@@ -357,18 +375,18 @@
                                         <!-- Ensemble Late Fusion Breakdown -->
                                         <div class="row g-2">
                                             <div class="col-6">
-                                                <div class="model-info-box">
+                                                <div class="model-info-box" id="boxResNetMeta">
                                                     <div class="d-flex justify-content-between align-items-center mb-1">
-                                                        <span class="font-mono text-muted small">RESNET-18 (70%)</span>
+                                                        <span class="font-mono text-muted small" id="resNetBoxTitle">ResNet-18</span>
                                                         <span class="font-mono small text-secondary fw-bold" id="resNetConfVal">0%</span>
                                                     </div>
                                                     <div class="fw-semibold text-white small text-truncate" id="resNetPredVal">--</div>
                                                 </div>
                                             </div>
                                             <div class="col-6">
-                                                <div class="model-info-box">
+                                                <div class="model-info-box" id="boxYoloMeta">
                                                     <div class="d-flex justify-content-between align-items-center mb-1">
-                                                        <span class="font-mono text-muted small">YOLO11n (30%)</span>
+                                                        <span class="font-mono text-muted small" id="yoloBoxTitle">YOLO11n</span>
                                                         <span class="font-mono small text-secondary fw-bold" id="yoloConfVal">0%</span>
                                                     </div>
                                                     <div class="fw-semibold text-white small text-truncate" id="yoloPredVal">--</div>
@@ -481,13 +499,13 @@
                             <!-- Section 1: Benchmark Accuracy Scoreboard & Concrete Counts -->
                             <div>
                                 <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <span class="text-secondary font-mono small fw-bold">1. KIỂM ĐỊNH THỰC TẾ TRÊN TẬP DỮ LIỆU (VALIDATION BENCHMARK)</span>
-                                    <span class="font-mono text-muted small" id="bmValSummaryText">Tập kiểm nghiệm: 2,318 ảnh (2,303 đúng / 15 sai)</span>
+                                    <span class="text-secondary font-mono small fw-bold">ĐÁNH GIÁ TRÊN TẬP KIỂM NGHIỆM</span>
+                                    <span class="font-mono text-muted small" id="bmValSummaryText">Tập kiểm nghiệm: 2,318 ảnh</span>
                                 </div>
                                 <div class="row g-2 mb-3">
                                     <div class="col-6 col-lg-3">
                                         <div class="stat-tile p-3 text-start">
-                                            <div class="stat-label">LATE FUSION (TỔNG HỢP)</div>
+                                            <div class="stat-label">LATE FUSION</div>
                                             <div class="d-flex align-items-baseline gap-2">
                                                 <div class="stat-num text-white" id="bmFusionAcc">99.37%</div>
                                                 <span class="badge border border-subtle text-secondary font-mono" style="font-size: 0.65rem;">TỐI ƯU</span>
@@ -497,23 +515,23 @@
                                     </div>
                                     <div class="col-6 col-lg-3">
                                         <div class="stat-tile p-3 text-start">
-                                            <div class="stat-label">RESNET-18 (TRỌNG SỐ 70%)</div>
+                                            <div class="stat-label">RESNET-18</div>
                                             <div class="stat-num text-white" id="bmResNetAcc">99.27%</div>
                                             <div class="text-secondary font-mono small mt-1" id="bmResNetCount">2,301 / 2,318 ảnh đúng</div>
                                         </div>
                                     </div>
                                     <div class="col-6 col-lg-3">
                                         <div class="stat-tile p-3 text-start">
-                                            <div class="stat-label">YOLO11N-CLS (TRỌNG SỐ 30%)</div>
+                                            <div class="stat-label">YOLO11N</div>
                                             <div class="stat-num text-white" id="bmYoloAcc">96.01%</div>
                                             <div class="text-secondary font-mono small mt-1" id="bmYoloCount">2,226 / 2,318 ảnh đúng</div>
                                         </div>
                                     </div>
                                     <div class="col-6 col-lg-3">
                                         <div class="stat-tile p-3 text-start">
-                                            <div class="stat-label">TỔNG LỖI TOÀN HỆ THỐNG</div>
+                                            <div class="stat-label">TỶ LỆ LỖI</div>
                                             <div class="stat-num text-white" id="bmErrorRate">0.63%</div>
-                                            <div class="text-secondary font-mono small mt-1" id="bmErrorCount">Chỉ 15 ảnh sai / 2,318 ảnh</div>
+                                            <div class="text-secondary font-mono small mt-1" id="bmErrorCount">15 / 2,318 ảnh sai</div>
                                         </div>
                                     </div>
                                 </div>
@@ -584,7 +602,7 @@
                             <!-- Section 2: Total Dataset Size Breakdown -->
                             <div>
                                 <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <span class="text-secondary font-mono small fw-bold">2. TỔNG DUNG LƯỢNG TẬP DỮ LIỆU HUẤN LUYỆN (DATASET REPOSITORY)</span>
+                                    <span class="text-secondary font-mono small fw-bold">TỔNG QUAN TẬP DỮ LIỆU</span>
                                     <span class="font-mono text-muted small" id="totalDatasetSamples">Tổng cộng: 11,588 ảnh</span>
                                 </div>
                                 <div class="row g-2 font-mono small">
@@ -640,10 +658,10 @@
                                             <div class="mb-3">
                                                 <label class="small text-muted font-mono mb-1">Chọn nhãn loại rác cho ảnh:</label>
                                                 <select class="form-select form-select-sm font-mono" id="uploadDatasetCategory">
-                                                    <option value="burnable">Ngăn 1: Rác cháy được (Hữu cơ & Giấy)</option>
-                                                    <option value="glass">Ngăn 2: Chai lọ thủy tinh (Glass)</option>
-                                                    <option value="metal">Ngăn 3: Kim loại & Vỏ lon (Metal)</option>
-                                                    <option value="plastic" selected>Ngăn 4: Nhựa PET & Chai nước (Plastic)</option>
+                                                    <option value="burnable">Ngăn 1: Rác cháy được</option>
+                                                    <option value="glass">Ngăn 2: Thủy tinh</option>
+                                                    <option value="metal">Ngăn 3: Kim loại</option>
+                                                    <option value="plastic" selected>Ngăn 4: Nhựa PET</option>
                                                 </select>
                                             </div>
 
@@ -679,17 +697,17 @@
                                                 <div class="col-4">
                                                     <label class="small text-muted font-mono mb-1 d-block">Số Epochs</label>
                                                     <select class="form-select form-select-sm font-mono" id="trainEpochsInput">
-                                                        <option value="3">3 Epochs (Nhanh)</option>
-                                                        <option value="5" selected>5 Epochs (Khuyên dùng)</option>
-                                                        <option value="10">10 Epochs (Sâu)</option>
-                                                        <option value="20">20 Epochs (Tối đa)</option>
+                                                        <option value="3">3 Epochs</option>
+                                                        <option value="5" selected>5 Epochs</option>
+                                                        <option value="10">10 Epochs</option>
+                                                        <option value="20">20 Epochs</option>
                                                     </select>
                                                 </div>
                                                 <div class="col-4">
                                                     <label class="small text-muted font-mono mb-1 d-block">Tốc độ học (LR)</label>
                                                     <select class="form-select form-select-sm font-mono" id="trainLrInput">
-                                                        <option value="0.0001" selected>0.0001 (Ổn định)</option>
-                                                        <option value="0.00005">0.00005 (Mịn)</option>
+                                                        <option value="0.0001" selected>0.0001</option>
+                                                        <option value="0.00005">0.00005</option>
                                                     </select>
                                                 </div>
                                                 <div class="col-4">
@@ -721,12 +739,12 @@
                                         <!-- Realtime Terminal Console Box -->
                                         <div>
                                             <div class="terminal-header d-flex justify-content-between align-items-center">
-                                                <span><i class="fa-solid fa-terminal me-1"></i> TERMINAL LOGS HUẤN LUYỆN</span>
+                                                <span><i class="fa-solid fa-terminal me-1"></i> NHẬT KÝ HUẤN LUYỆN</span>
                                                 <span class="text-muted" id="trainEpochCounter">Epoch --/--</span>
                                             </div>
                                             <div class="terminal-console-box" id="trainTerminalBox">
-[Hệ thống] Sẵn sàng huấn luyện tự động.
-Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 trên dữ liệu mới.
+[Hệ thống] Sẵn sàng huấn luyện.
+Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                             </div>
                                         </div>
 
@@ -754,7 +772,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 
                             <div class="connection-pill-bar">
                                 <div class="d-flex gap-2 align-items-center">
                                     <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-input border-subtle text-secondary font-mono">IP ESP32 ACTUATOR</span>
+                                        <span class="input-group-text bg-input border-subtle text-secondary font-mono">IP THÙNG RÁC</span>
                                         <input type="text" id="actuatorIpInput" class="form-control font-mono" placeholder="http://172.16.0.116" value="http://172.16.0.116">
                                     </div>
                                     <button type="button" class="btn btn-white btn-sm text-nowrap" id="btnConnectActuator" onclick="connectActuator()">
@@ -762,8 +780,8 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 
                                     </button>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top border-subtle" style="font-size: 0.72rem;">
-                                    <span class="text-secondary font-mono" id="actuatorConnectionStatus"><i class="fa-solid fa-circle-dot text-muted me-1"></i> Sẵn sàng kết nối (http://172.16.0.116)</span>
-                                    <span class="text-muted font-mono">Servo 360° [G18] | Servo 180° [G19] | LCD 1602 (0x3F)</span>
+                                    <span class="text-secondary font-mono" id="actuatorConnectionStatus"><i class="fa-solid fa-circle-dot text-muted me-1"></i> Trạng thái: Sẵn sàng</span>
+                                    <span class="text-muted font-mono">Động cơ xoay | Servo mở nắp | Màn hình LCD</span>
                                 </div>
                             </div>
 
@@ -779,8 +797,8 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 
                                     <!-- Virtual LCD Screen -->
                                     <div>
                                         <div class="d-flex justify-content-between align-items-center mb-1 font-mono text-muted small">
-                                            <span>MÀN HÌNH LCD 1602A (I2C: 0x3F)</span>
-                                            <span>HARDWARE LIVE VIEW</span>
+                                            <span>MÀN HÌNH LCD 1602</span>
+                                            <span>TRỰC TIẾP</span>
                                         </div>
                                         <div class="virtual-lcd">
                                             <div class="lcd-line" id="lcdLine1">THUNG RAC 4 NGAN</div>
@@ -797,30 +815,30 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 
                                             </div>
                                             <div class="row g-2" id="binVisualGrid">
                                                 <div class="col-3">
-                                                    <div class="hardware-bin-box active" id="binCard1" data-bin="1" onclick="triggerManualBin(1, 'Rac CHAY DUOC')">
+                                                    <div class="hardware-bin-box active" id="binCard1" data-bin="1" onclick="triggerManualBin(1, 'Rác cháy được')">
                                                         <div class="font-mono text-white fw-bold small">N.1</div>
                                                         <div class="fw-semibold text-white small text-truncate">Cháy Được</div>
                                                         <div class="text-muted font-mono" style="font-size: 0.68rem;">0°</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="hardware-bin-box" id="binCard2" data-bin="2" onclick="triggerManualBin(2, 'Chai THUY TINH')">
+                                                    <div class="hardware-bin-box" id="binCard2" data-bin="2" onclick="triggerManualBin(2, 'Thủy tinh')">
                                                         <div class="font-mono text-white fw-bold small">N.2</div>
                                                         <div class="fw-semibold text-white small text-truncate">Thủy Tinh</div>
                                                         <div class="text-muted font-mono" style="font-size: 0.68rem;">90°</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="hardware-bin-box" id="binCard3" data-bin="3" onclick="triggerManualBin(3, 'Vo lon KIM LOAI')">
+                                                    <div class="hardware-bin-box" id="binCard3" data-bin="3" onclick="triggerManualBin(3, 'Kim loại')">
                                                         <div class="font-mono text-white fw-bold small">N.3</div>
                                                         <div class="fw-semibold text-white small text-truncate">Kim Loại</div>
                                                         <div class="text-muted font-mono" style="font-size: 0.68rem;">180°</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="hardware-bin-box" id="binCard4" data-bin="4" onclick="triggerManualBin(4, 'Chai NHUA (PET)')">
+                                                    <div class="hardware-bin-box" id="binCard4" data-bin="4" onclick="triggerManualBin(4, 'Nhựa PET')">
                                                         <div class="font-mono text-white fw-bold small">N.4</div>
-                                                        <div class="fw-semibold text-white small text-truncate">Nhựa (PET)</div>
+                                                        <div class="fw-semibold text-white small text-truncate">Nhựa PET</div>
                                                         <div class="text-muted font-mono" style="font-size: 0.68rem;">-90°</div>
                                                     </div>
                                                 </div>
@@ -834,7 +852,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 
                                             </div>
                                             <div class="hardware-bin-box h-100 d-flex flex-column align-items-center justify-content-center p-3" id="servoLidCard">
                                                 <i class="fa-solid fa-lock fs-4 text-muted mb-1" id="servoLidIcon"></i>
-                                                <div class="small font-mono fw-bold text-white" id="servoLidText">ĐÓNG NẮP (0°)</div>
+                                                <div class="small font-mono fw-bold text-white" id="servoLidText">ĐÓNG NẮP</div>
                                                 <div class="text-muted font-mono" style="font-size: 0.65rem;" id="servoSubText">Sẵn sàng nhận rác</div>
                                             </div>
                                         </div>
@@ -852,22 +870,22 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 
                                         </div>
                                         <div class="d-grid gap-2">
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
-                                                <span class="text-white">Ngăn 1: Rác cháy được (0°)</span>
+                                                <span class="text-white">Ngăn 1: Rác cháy được</span>
                                                 <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác cháy được')">Xoay tới</button>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
-                                                <span class="text-white">Ngăn 2: Chai lọ thủy tinh (90°)</span>
+                                                <span class="text-white">Ngăn 2: Thủy tinh</span>
                                                 <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Thủy tinh')">Xoay tới</button>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
-                                                <span class="text-white">Ngăn 3: Kim loại & lon (180°)</span>
+                                                <span class="text-white">Ngăn 3: Kim loại</span>
                                                 <div class="d-flex gap-1">
                                                     <button type="button" class="btn btn-outline-mono btn-xs py-0 px-2 font-mono" onclick="testActuatorCmd('rotate_3_fwd')">Quay đi</button>
                                                     <button type="button" class="btn btn-outline-mono btn-xs py-0 px-2 font-mono" onclick="testActuatorCmd('rotate_3_rev')">Quay về</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
-                                                <span class="text-white">Ngăn 4: Nhựa PET (-90°)</span>
+                                                <span class="text-white">Ngăn 4: Nhựa PET</span>
                                                 <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Nhựa PET')">Xoay tới</button>
                                             </div>
                                         </div>
@@ -877,15 +895,15 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện ResNet-18 
                                 <div class="col-12 col-xl-6">
                                     <div class="clean-card h-100 p-3">
                                         <div class="fw-semibold text-white mb-2 d-flex align-items-center justify-content-between">
-                                            <span>Nắp Mở Thùng Rác (Servo 180°)</span>
+                                            <span>Nắp Mở Thùng Rác</span>
                                             <span class="badge border border-subtle text-secondary font-mono small" id="trapdoorStatusBadge">TRẠNG THÁI: ĐÓNG</span>
                                         </div>
                                         <div class="d-flex gap-2 mb-3">
                                             <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(true)">
-                                                <i class="fa-solid fa-door-open me-1"></i> Mở nắp (180°)
+                                                <i class="fa-solid fa-door-open me-1"></i> Mở nắp
                                             </button>
                                             <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(false)">
-                                                <i class="fa-solid fa-lock me-1"></i> Đóng nắp (0°)
+                                                <i class="fa-solid fa-lock me-1"></i> Đóng nắp
                                             </button>
                                         </div>
 

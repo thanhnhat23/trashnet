@@ -556,6 +556,7 @@ body.app-body {
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 0.65rem 0.85rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* Actuator Realtime Status Banner */

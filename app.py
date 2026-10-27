@@ -233,10 +233,17 @@ def get_bin_info_for_label(label):
 
 def format_prediction_result(raw_result):
     """
-    Enriches raw fusion prediction result with metadata, modern FontAwesome styling, and multi-model comparison.
+    Enriches raw prediction result with metadata, modern FontAwesome styling, and multi-model comparison.
     """
     top_class = raw_result["class"]
     top_meta = WASTE_META.get(top_class, {})
+    active_model = raw_result.get("active_model", "fusion")
+
+    model_display_names = {
+        'fusion': 'Fusion',
+        'resnet': 'ResNet-18',
+        'yolo': 'YOLO11n'
+    }
 
     # Enrich all prediction items
     enriched_predictions = []
@@ -264,7 +271,11 @@ def format_prediction_result(raw_result):
 
     bin_info = get_bin_info_for_label(top_class)
 
+    method_desc = model_display_names.get(active_model, 'Fusion')
+
     return {
+        "active_model": active_model,
+        "active_model_name": model_display_names.get(active_model, 'Late Fusion'),
         "class": top_class,
         "name_vi": top_meta.get("name_vi", top_class),
         "category": top_meta.get("category", "Chưa xác định"),
@@ -282,8 +293,8 @@ def format_prediction_result(raw_result):
 
         # Multi-model detailed breakdown
         "fusion_info": {
-            "method": "Late Fusion (Soft Voting)",
-            "accuracy": "99.37%",
+            "method": method_desc,
+            "active_model": active_model,
             "models_agree": models_agree,
             "resnet": {
                 "name": "ResNet-18",
@@ -413,6 +424,9 @@ def append_to_history(result_dict, pil_image=None, source="webcam"):
         resnet_info = fusion_info.get('resnet', {})
         yolo_info = fusion_info.get('yolo', {})
         
+        active_model = result_dict.get('active_model', 'fusion')
+        active_model_name = result_dict.get('active_model_name', 'Fusion')
+        
         record = {
             "id": f"scan_{now.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}",
             "timestamp": now.strftime('%Y-%m-%d %H:%M:%S'),
@@ -427,6 +441,8 @@ def append_to_history(result_dict, pil_image=None, source="webcam"):
             "bin_color": result_dict.get('bin_color', '#22c55e'),
             "confidence": result_dict.get('confidence', 0),
             "source": source,
+            "active_model": active_model,
+            "active_model_name": active_model_name,
             "models_agree": fusion_info.get('models_agree', True),
             "resnet_pred": resnet_info.get('name_vi', ''),
             "resnet_conf": resnet_info.get('confidence', 0),
@@ -485,13 +501,17 @@ def handle_predict():
         raw_res = None
         image = None
         source = 'webcam'
+        model_type = request.args.get('model') or request.args.get('model_type') or 'fusion'
 
         # 1. Handle file upload
         if 'image' in request.files:
             file = request.files['image']
             if file.filename != '':
                 image = Image.open(file.stream)
-                raw_res = predict(image)
+                req_model = request.form.get('model_type') or request.form.get('model')
+                if req_model:
+                    model_type = req_model
+                raw_res = predict(image, model_type=model_type)
                 source = 'upload'
 
         # 2. Handle base64 from webcam (JSON body)
@@ -499,18 +519,22 @@ def handle_predict():
             data = request.get_json(silent=True)
             if data and 'image_base64' in data:
                 raw_base64 = data['image_base64']
+                if 'model_type' in data:
+                    model_type = data['model_type']
+                elif 'model' in data:
+                    model_type = data['model']
                 if ',' in raw_base64:
                     raw_base64 = raw_base64.split(',')[1]
                 image_bytes = base64.b64decode(raw_base64)
                 image = Image.open(io.BytesIO(image_bytes))
-                raw_res = predict(image)
+                raw_res = predict(image, model_type=model_type)
                 source = 'webcam'
 
         # 3. Handle raw binary JPEG sent directly from ESP32-CAM HTTP POST
         if raw_res is None and request.data and len(request.data) > 0:
             try:
                 image = Image.open(io.BytesIO(request.data))
-                raw_res = predict(image)
+                raw_res = predict(image, model_type=model_type)
                 source = 'esp32_cam'
             except Exception:
                 pass
@@ -584,12 +608,19 @@ def esp32_capture():
         if not image_data or len(image_data) < 100:
             return jsonify({'error': 'Không nhận được dữ liệu ảnh từ ESP32-CAM'}), 502
 
+        model_type = request.args.get('model') or request.args.get('model_type')
+        if not model_type and request.is_json:
+            data_body = request.get_json(silent=True) or {}
+            model_type = data_body.get('model_type') or data_body.get('model')
+        if not model_type:
+            model_type = 'fusion'
+
         image = Image.open(io.BytesIO(image_data))
-        raw_res = predict(image)
+        raw_res = predict(image, model_type=model_type)
         result = format_prediction_result(raw_res)
 
         # Trích xuất nhãn và gửi lệnh sang ESP32 Actuator
-        best_label = result.get('fusion', {}).get('predicted_label') or result.get('resnet', {}).get('predicted_label') or result.get('class')
+        best_label = result.get('class')
         if best_label:
             actuator_res = send_command_to_esp32_actuator(best_label, result.get('name_vi'))
             if actuator_res:

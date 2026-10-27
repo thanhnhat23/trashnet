@@ -181,34 +181,35 @@ def predict_yolo(image):
 
 
 # ============================================================
-# SOFT VOTING
+# SOFT VOTING & INDIVIDUAL MODEL PREDICTION
 # ============================================================
 
-def predict(image):
+def predict(image, model_type="fusion"):
     """
     Predict using:
+        - "fusion": Final = 0.7 * ResNet + 0.3 * YOLO (Late Fusion Soft Voting)
+        - "resnet": ResNet18 probabilities only
+        - "yolo": YOLO11n-cls probabilities only
 
-        Final = 0.7 * ResNet + 0.3 * YOLO
-
-    Return final classification result.
+    Return final classification result with active model and comparison details.
     """
+    model_type = (model_type or "fusion").lower().strip()
+    if model_type not in ("fusion", "resnet", "yolo"):
+        model_type = "fusion"
 
     # --------------------------------------------------------
     # 1. ResNet probabilities
     # --------------------------------------------------------
-
     resnet_probs = predict_resnet(image)
 
     # --------------------------------------------------------
     # 2. YOLO probabilities
     # --------------------------------------------------------
-
     yolo_probs = predict_yolo(image)
 
     # --------------------------------------------------------
     # 3. Safety check
     # --------------------------------------------------------
-
     if len(resnet_probs) != len(yolo_probs):
         raise RuntimeError(
             f"Số class không giống nhau: "
@@ -219,18 +220,26 @@ def predict(image):
     # --------------------------------------------------------
     # 4. Soft Voting
     # --------------------------------------------------------
-
     fusion_probs = (
         RESNET_WEIGHT * resnet_probs
         + YOLO_WEIGHT * yolo_probs
     )
 
     # --------------------------------------------------------
-    # 5. Find final class
+    # 5. Select active probabilities based on model_type
     # --------------------------------------------------------
+    if model_type == "resnet":
+        active_probs = resnet_probs
+    elif model_type == "yolo":
+        active_probs = yolo_probs
+    else:
+        active_probs = fusion_probs
 
+    # --------------------------------------------------------
+    # 6. Find final class
+    # --------------------------------------------------------
     sorted_probs, indices = torch.sort(
-        fusion_probs,
+        active_probs,
         descending=True
     )
 
@@ -239,13 +248,11 @@ def predict(image):
     top_conf = sorted_probs[0].item()
 
     # --------------------------------------------------------
-    # 6. All predictions
+    # 7. All predictions for active model
     # --------------------------------------------------------
-
     all_predictions = []
 
     for prob, idx in zip(sorted_probs, indices):
-
         class_id = idx.item()
         class_name = idx_to_class[class_id]
 
@@ -258,10 +265,10 @@ def predict(image):
         })
 
     # --------------------------------------------------------
-    # 7. Return result
+    # 8. Return result
     # --------------------------------------------------------
-
     return {
+        "active_model": model_type,
         "class": top_class,
         "confidence": round(
             top_conf * 100,
@@ -269,7 +276,7 @@ def predict(image):
         ),
         "all_predictions": all_predictions,
 
-        # Debug information
+        # Debug & comparison information
         "resnet_prediction": idx_to_class[
             torch.argmax(resnet_probs).item()
         ],

@@ -1,5 +1,13 @@
 // TrashNet - Minimalist Monochrome Controller (IoT & Camera Vision Hub)
 let currentCameraSource = 'webcam';
+let currentModelType = 'fusion';
+try {
+    const savedModel = localStorage.getItem('trashnet_model_type');
+    if (savedModel && ['fusion', 'resnet', 'yolo'].includes(savedModel)) {
+        currentModelType = savedModel;
+    }
+} catch (e) {}
+
 let webcamStream = null;
 let webcamAutoScanTimer = null;
 let esp32AutoScanTimer = null;
@@ -75,6 +83,70 @@ try {
     }
 } catch (e) {
     console.warn('Could not read history from localStorage');
+}
+
+// ============================================================
+// 0. AI MODEL SWITCHER (FUSION, RESNET-18, YOLO11n)
+// ============================================================
+function switchAiModel(modelType) {
+    if (!['fusion', 'resnet', 'yolo'].includes(modelType)) {
+        modelType = 'fusion';
+    }
+    currentModelType = modelType;
+    try {
+        localStorage.setItem('trashnet_model_type', currentModelType);
+    } catch (e) {}
+
+    const btnFusion = document.getElementById('btnModelFusion');
+    const btnResnet = document.getElementById('btnModelResnet');
+    const btnYolo = document.getElementById('btnModelYolo');
+
+    if (btnFusion) btnFusion.classList.toggle('active', modelType === 'fusion');
+    if (btnResnet) btnResnet.classList.toggle('active', modelType === 'resnet');
+    if (btnYolo) btnYolo.classList.toggle('active', modelType === 'yolo');
+
+    updateActiveModelUi(modelType);
+}
+
+function updateActiveModelUi(modelType) {
+    const sidebarActiveModel = document.getElementById('sidebarActiveModel');
+    const probTableTitle = document.getElementById('probTableTitle');
+    const resNetBoxTitle = document.getElementById('resNetBoxTitle');
+    const yoloBoxTitle = document.getElementById('yoloBoxTitle');
+    const boxResNet = document.getElementById('boxResNetMeta');
+    const boxYolo = document.getElementById('boxYoloMeta');
+
+    const meta = {
+        fusion: { name: 'Fusion' },
+        resnet: { name: 'ResNet-18' },
+        yolo: { name: 'YOLO11n' }
+    };
+
+    const info = meta[modelType] || meta.fusion;
+
+    if (sidebarActiveModel) sidebarActiveModel.textContent = info.name;
+    if (probTableTitle) probTableTitle.textContent = 'Phân phối xác suất';
+    if (resNetBoxTitle) resNetBoxTitle.textContent = 'ResNet-18';
+    if (yoloBoxTitle) yoloBoxTitle.textContent = 'YOLO11n';
+
+    if (boxResNet) {
+        if (modelType === 'resnet') {
+            boxResNet.style.borderColor = '#ffffff';
+            boxResNet.style.boxShadow = '0 0 10px rgba(255, 255, 255, 0.12)';
+        } else {
+            boxResNet.style.borderColor = '';
+            boxResNet.style.boxShadow = '';
+        }
+    }
+    if (boxYolo) {
+        if (modelType === 'yolo') {
+            boxYolo.style.borderColor = '#ffffff';
+            boxYolo.style.boxShadow = '0 0 10px rgba(255, 255, 255, 0.12)';
+        } else {
+            boxYolo.style.borderColor = '';
+            boxYolo.style.boxShadow = '';
+        }
+    }
 }
 
 // ============================================================
@@ -229,7 +301,10 @@ async function captureWebcam() {
         const res = await fetch('/api/predict', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_base64: base64Img })
+            body: JSON.stringify({ 
+                image_base64: base64Img,
+                model_type: currentModelType
+            })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Lỗi nhận diện');
@@ -506,14 +581,17 @@ async function captureEsp32Cam() {
             const res = await fetch('/api/predict', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image_base64: base64Img })
+                body: JSON.stringify({ 
+                    image_base64: base64Img,
+                    model_type: currentModelType
+                })
             });
             data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Lỗi nhận diện AI');
             data.captured_image = base64Img;
         } else {
             // DỰ PHÒNG: Nếu chưa mở stream, gọi server proxy sang /capture của ESP32
-            const res = await fetch(`/api/esp32/capture?ip=${encodeURIComponent(baseUrl)}`);
+            const res = await fetch(`/api/esp32/capture?ip=${encodeURIComponent(baseUrl)}&model_type=${encodeURIComponent(currentModelType)}`);
             data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Không thể lấy ảnh từ ESP32-CAM');
         }
@@ -554,7 +632,10 @@ async function toggleEsp32Flash() {
 function renderResults(data, imageThumb) {
     if (emptyState) emptyState.classList.add('d-none');
     if (resultState) resultState.classList.remove('d-none');
-    if (engineStatus) engineStatus.textContent = 'HOÀN TẤT (99.37%)';
+    if (engineStatus) engineStatus.textContent = 'HOÀN TẤT';
+
+    const activeM = data.active_model || currentModelType;
+    updateActiveModelUi(activeM);
 
     // Main Info
     if (resCategoryTag) resCategoryTag.textContent = (data.category || '').toUpperCase();
@@ -755,6 +836,7 @@ function renderFullHistoryGrid(items = null) {
                         <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${binBadgeColor};"></span>
                         <span class="text-zinc-300">Ngăn ${item.bin_number}</span>
                         ${agreeIcon}
+                        <span class="badge border border-zinc-700 font-mono text-zinc-400 ms-1" style="font-size: 0.58rem;">${(item.active_model || 'fusion').toUpperCase()}</span>
                     </div>
                     <span class="font-mono text-white fw-bold">${item.confidence}%</span>
                 </div>
@@ -1996,6 +2078,9 @@ async function stopAutoTraining() {
 
 // Tự động khởi tạo kết nối ESP32-CAM và ESP32 Thùng Rác khi tải trang
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. Khởi tạo mô hình AI đã chọn
+    switchAiModel(currentModelType);
+
     // 1. Tải cài đặt từ server (file actuator_settings.json)
     loadActuatorSettings();
 
