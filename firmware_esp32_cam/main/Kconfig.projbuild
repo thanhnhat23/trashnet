@@ -1,0 +1,27 @@
+menu "TrashNet ESP32-CAM Configuration"
+
+    config ESP_WIFI_SSID
+        string "WiFi SSID"
+        default "My_WiFi"
+        help
+            SSID of your local WiFi network.
+
+    config ESP_WIFI_PASSWORD
+        string "WiFi Password"
+        default "12345678"
+        help
+            Password of your local WiFi network.
+
+    config ESP_MAXIMUM_RETRY
+        int "Maximum retry"
+        default 10
+        help
+            Set the Maximum retry to avoid station reconnecting to the AP unlimited when the AP is really off.
+
+    config ESP_FLASH_LED_GPIO
+        int "Flash LED GPIO Pin"
+        default 4
+        help
+            GPIO Pin for the bright Flash LED on ESP32-CAM (default is GPIO 4 on AI-Thinker boards).
+
+endmenu
