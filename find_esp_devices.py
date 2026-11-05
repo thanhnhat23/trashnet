@@ -350,5 +350,62 @@ def main():
     except (KeyboardInterrupt, EOFError):
         pass
 
+def sync_com_port(port, device_type="actuator", timeout=8):
+    try:
+        import serial
+    except ImportError:
+        print("[AUTO-IP] pyserial chua duoc cai dat. Web se tu bat IP qua UDP.")
+        return None
+    import re
+    print(f"[AUTO-IP] Dang doc cong {port} ({device_type})...")
+    try:
+        ser = serial.Serial(port, 115200, timeout=0.5)
+        ser.dtr = False
+        ser.rts = True
+        time.sleep(0.1)
+        ser.rts = False
+    except Exception as e:
+        print(f"[AUTO-IP] Khong mo duoc {port}: {e}")
+        return None
+
+    t0 = time.time()
+    ip = None
+    ip_regex = re.compile(r"https?://(\d{1,3}(?:\.\d{1,3}){3})|sta ip:\s*(\d{1,3}(?:\.\d{1,3}){3})")
+    while time.time() - t0 < timeout:
+        try:
+            line = ser.readline().decode("utf-8", errors="ignore").strip()
+            if line:
+                m = ip_regex.search(line)
+                if m:
+                    cand = m.group(1) or m.group(2)
+                    if cand and not cand.startswith("0.0.") and not cand.startswith("127."):
+                        ip = cand
+                        break
+        except Exception:
+            pass
+    ser.close()
+
+    if ip:
+        print(f">>> [THANH CONG] Tim thay IP cua {device_type.upper()}: {ip}")
+        if device_type == "cam":
+            update_settings_file(None, ip)
+        else:
+            update_settings_file(ip, None)
+        return ip
+    else:
+        print(f"[AUTO-IP] Chua bat duoc IP qua serial (board se tu broadcast UDP khi vao WiFi).")
+        return None
+
+
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="TrashNet ESP Discovery & Sync")
+    parser.add_argument("--sync-com", dest="sync_com", help="Doc cong COM de dong bo IP sau flash (e.g. COM5)")
+    parser.add_argument("--device", dest="device", choices=["actuator", "cam"], default="actuator", help="Loai board")
+    parser.add_argument("--timeout", dest="timeout", type=int, default=8, help="Timeout doc serial")
+    args, _ = parser.parse_known_args()
+
+    if args.sync_com:
+        sync_com_port(args.sync_com, args.device, args.timeout)
+    else:
+        main()

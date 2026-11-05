@@ -16,29 +16,17 @@
 #include "driver/gpio.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include "lwip/sockets.h"
 
 static const char *TAG = "ESP32_CAM_TRASHNET";
 
-// ====================================================================
-// 1. CẤU HÌNH WIFI DÙNG CHUNG (TỪ FILE wifi_config.h Ở GỐC PROJECT)
-// ====================================================================
 #include "wifi_config.h"
 
 #define AP_SSID                 "Hoi Chieu...Troi Mua"
 #define AP_PASS                 "12345678"
 
-// Địa chỉ Server Flask nhận diện AI (IP máy tính chạy app.py - Port 5001):
-#define SERVER_PREDICT_URL      "http://192.168.1.8:5001/api/predict"
-
-// Mặc định TẮT tự động đẩy ảnh để không spam terminal (Web sẽ chủ động lấy ảnh từ ESP32)
-#define AUTO_UPLOAD_DEFAULT     false
+#define ENABLE_AUTO_UPLOAD      0
 #define AUTO_UPLOAD_INTERVAL_MS 5000
-
-// ====================================================================
-// GHI CHÚ VỀ SERVO:
-// ESP32-CAM hiện tại KHÔNG nối Servo (không gánh tải nguồn tránh sụt áp camera).
-// Mạch ESP32 thường riêng biệt sẽ kết nối WiFi và nhận lệnh từ Server để điều khiển Servo.
-// ====================================================================
 
 #define WIFI_CONNECTED_BIT      BIT0
 #define WIFI_FAIL_BIT           BIT1
@@ -46,12 +34,9 @@ static const char *TAG = "ESP32_CAM_TRASHNET";
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
 static bool s_is_wifi_connected = false;
-static bool s_auto_upload_enabled = AUTO_UPLOAD_DEFAULT;
+static bool s_auto_upload_enabled = false;
 
-// ====================================================================
-// 2. CẤU HÌNH PHẦN CỨNG ESP32-CAM (AI-THINKER PINOUT)
-// ====================================================================
-#define FLASH_GPIO_PIN          4     // Đèn LED Flash siêu sáng trên ESP32-CAM
+#define FLASH_GPIO_PIN          4
 
 #define CAM_PIN_PWDN            32
 #define CAM_PIN_RESET           -1
@@ -72,9 +57,31 @@ static bool s_auto_upload_enabled = AUTO_UPLOAD_DEFAULT;
 
 static bool s_flash_on = false;
 
-// ====================================================================
-// 3. KHỞI TẠO CAMERA OV2640
-// ====================================================================
+static void broadcast_device_ip(const char *dev_name, const esp_ip4_addr_t *ip)
+{
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (sock < 0) return;
+
+    int broadcast = 1;
+    setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast));
+
+    struct sockaddr_in dest;
+    memset(&dest, 0, sizeof(dest));
+    dest.sin_family = AF_INET;
+    dest.sin_port = htons(5005);
+    dest.sin_addr.s_addr = inet_addr("255.255.255.255");
+
+    char msg[128];
+    snprintf(msg, sizeof(msg), "TRASHNET:%s:http://" IPSTR, dev_name, IP2STR(ip));
+
+    for (int i = 0; i < 3; i++) {
+        sendto(sock, msg, strlen(msg), 0, (struct sockaddr *)&dest, sizeof(dest));
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    close(sock);
+    ESP_LOGI(TAG, "[AUTO-IP] UDP Broadcast: %s", msg);
+}
+
 static esp_err_t init_camera(void)
 {
     camera_config_t config;
@@ -99,7 +106,6 @@ static esp_err_t init_camera(void)
     config.xclk_freq_hz = 20000000;
     config.pixel_format = PIXFORMAT_JPEG;
 
-    // Phân giải QVGA 320x240: Tối ưu siêu mượt, giảm độ trễ tối đa, khớp hoàn hảo kích thước 224x224 của AI
     config.frame_size   = FRAMESIZE_QVGA;
     config.jpeg_quality = 14;
     config.fb_count     = 2;
@@ -107,7 +113,7 @@ static esp_err_t init_camera(void)
 
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Lỗi khởi tạo Camera (0x%x). Vui lòng cắm chặt cáp dẹp OV2640!", err);
+        ESP_LOGE(TAG, "Loi khoi tao Camera (0x%x)", err);
         return err;
     }
 
@@ -116,33 +122,22 @@ static esp_err_t init_camera(void)
         s->set_vflip(s, 1);
         s->set_hmirror(s, 0);
     }
-    ESP_LOGI(TAG, "Khởi tạo Camera OV2640 THÀNH CÔNG!");
+    ESP_LOGI(TAG, "Khoi tao Camera OV2640 thanh cong");
     return ESP_OK;
 }
 
-// ====================================================================
-// 4. TASK TỰ ĐỘNG CHỤP VÀ GỬI ẢNH LÊN SERVER FLASK (/api/predict)
-// ====================================================================
+#if ENABLE_AUTO_UPLOAD
 static void auto_upload_task(void *pvParameters)
 {
-    ESP_LOGI(TAG, "Task Tự động gửi ảnh lên Server đã bắt đầu (URL: %s)", SERVER_PREDICT_URL);
-
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(AUTO_UPLOAD_INTERVAL_MS));
+        if (!s_is_wifi_connected || !s_auto_upload_enabled) continue;
 
-        if (!s_is_wifi_connected || !s_auto_upload_enabled) {
-            continue;
-        }
-
-        // Lấy 1 khung hình từ camera
         camera_fb_t *fb = esp_camera_fb_get();
-        if (!fb) {
-            ESP_LOGW(TAG, "[AUTO-UPLOAD] Không lấy được frame camera!");
-            continue;
-        }
+        if (!fb) continue;
 
         esp_http_client_config_t http_config = {
-            .url = SERVER_PREDICT_URL,
+            .url = "http://192.168.1.8:5001/api/predict",
             .method = HTTP_METHOD_POST,
             .timeout_ms = 4000,
         };
@@ -151,27 +146,14 @@ static void auto_upload_task(void *pvParameters)
         if (client) {
             esp_http_client_set_header(client, "Content-Type", "image/jpeg");
             esp_http_client_set_post_field(client, (const char *)fb->buf, fb->len);
-
-            esp_err_t err = esp_http_client_perform(client);
-            if (err == ESP_OK) {
-                int status_code = esp_http_client_get_status_code(client);
-                ESP_LOGI(TAG, "[AUTO-UPLOAD] >>> Đã gửi ảnh (%d KB) lên Server -> HTTP %d (Server đang phân loại)",
-                         (int)(fb->len / 1024), status_code);
-            } else {
-                ESP_LOGW(TAG, "[AUTO-UPLOAD] Gửi ảnh thất bại: %s", esp_err_to_name(err));
-            }
+            esp_http_client_perform(client);
             esp_http_client_cleanup(client);
         }
-
         esp_camera_fb_return(fb);
     }
 }
+#endif
 
-// ====================================================================
-// 5. CÁC ENDPOINT HTTP SERVER TRÊN ESP32-CAM CHO WEB APP
-// ====================================================================
-
-// 5.1 GET / và GET /status
 static esp_err_t status_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/json");
@@ -183,7 +165,6 @@ static esp_err_t status_handler(httpd_req_t *req)
     return httpd_resp_send(req, resp, strlen(resp));
 }
 
-// 5.2 GET /capture: Chụp 1 ảnh cho Web App khi người dùng nhấn nút Chụp
 static esp_err_t capture_handler(httpd_req_t *req)
 {
     camera_fb_t *fb = esp_camera_fb_get();
@@ -201,45 +182,48 @@ static esp_err_t capture_handler(httpd_req_t *req)
     return res;
 }
 
-// 5.3 GET /stream: Live View Video trực tiếp dạng MJPEG
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char *STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
-static const char *STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
-static const char *STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
 static esp_err_t stream_handler(httpd_req_t *req)
 {
     camera_fb_t *fb = NULL;
     esp_err_t res = ESP_OK;
-    char part_buf[64];
+    char header_buf[128];
 
     res = httpd_resp_set_type(req, STREAM_CONTENT_TYPE);
     if (res != ESP_OK) return res;
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(req, "X-Framerate", "25");
 
     while (true) {
         fb = esp_camera_fb_get();
         if (!fb) {
-            res = ESP_FAIL;
-            break;
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
         }
 
-        size_t hlen = snprintf(part_buf, sizeof(part_buf), STREAM_PART, fb->len);
-        res = httpd_resp_send_chunk(req, STREAM_BOUNDARY, strlen(STREAM_BOUNDARY));
-        if (res == ESP_OK) res = httpd_resp_send_chunk(req, part_buf, hlen);
-        if (res == ESP_OK) res = httpd_resp_send_chunk(req, (const char *)fb->buf, fb->len);
+        size_t hlen = snprintf(header_buf, sizeof(header_buf),
+                               "\r\n--" PART_BOUNDARY "\r\n"
+                               "Content-Type: image/jpeg\r\n"
+                               "Content-Length: %u\r\n\r\n",
+                               (unsigned int)fb->len);
+
+        res = httpd_resp_send_chunk(req, header_buf, hlen);
+        if (res == ESP_OK) {
+            res = httpd_resp_send_chunk(req, (const char *)fb->buf, fb->len);
+        }
 
         esp_camera_fb_return(fb);
         fb = NULL;
 
         if (res != ESP_OK) break;
-        vTaskDelay(pdMS_TO_TICKS(15)); // 15ms delay cho tốc độ khung hình mượt mà (~20-25 FPS)
+        vTaskDelay(pdMS_TO_TICKS(25));
     }
     return res;
 }
 
-// 5.4 GET /flash?state=1 hoặc 0: Bật/Tắt Flash LED
 static esp_err_t flash_handler(httpd_req_t *req)
 {
     char query[32];
@@ -258,7 +242,6 @@ static esp_err_t flash_handler(httpd_req_t *req)
     return httpd_resp_send(req, resp, strlen(resp));
 }
 
-// 5.5 GET /autoupload?enable=1 hoặc 0: Bật/Tắt chế độ tự động gửi ảnh lên Server
 static esp_err_t autoupload_handler(httpd_req_t *req)
 {
     char query[32];
@@ -266,7 +249,6 @@ static esp_err_t autoupload_handler(httpd_req_t *req)
         char val[8];
         if (httpd_query_key_value(query, "enable", val, sizeof(val)) == ESP_OK) {
             s_auto_upload_enabled = (strcmp(val, "1") == 0);
-            ESP_LOGI(TAG, "Chế độ Auto Upload: %s", s_auto_upload_enabled ? "BẬT" : "TẮT");
         }
     }
 
@@ -305,15 +287,11 @@ static httpd_handle_t start_webserver(void)
         httpd_uri_t uri_autoupload = { .uri = "/autoupload", .method = HTTP_GET, .handler = autoupload_handler };
         httpd_register_uri_handler(server, &uri_autoupload);
 
-        ESP_LOGI(TAG, "HTTP Server đã sẵn sàng trên cổng 80!");
         return server;
     }
     return NULL;
 }
 
-// ====================================================================
-// 6. QUẢN LÝ WIFI (STA + FALLBACK AP)
-// ====================================================================
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
 {
@@ -324,29 +302,21 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         if (s_retry_num < 4) {
             esp_wifi_connect();
             s_retry_num++;
-            ESP_LOGW(TAG, "Đang kết nối lại WiFi lần %d...", s_retry_num);
         } else {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "\n\n"
-                      "*****************************************************************\n"
-                      "**                                                             **\n"
-                      "**  >>> IP ESP32-CAM: http://" IPSTR "                        **\n"
-                      "**  >>> DÁN ĐỊA CHỈ NÀY VÀO GIAO DIỆN WEB TRASHNET             **\n"
-                      "**                                                             **\n"
-                      "*****************************************************************\n",
-                      IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "IP ESP32-CAM: http://" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         s_is_wifi_connected = true;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        broadcast_device_ip("CAM", &event->ip_info.ip);
     }
 }
 
 static void start_softap_mode(void)
 {
-    ESP_LOGW(TAG, "Chuyển sang chế độ phát WiFi Access Point (AP)...");
     wifi_config_t wifi_ap_config = {
         .ap = {
             .ssid = AP_SSID,
@@ -359,11 +329,7 @@ static void start_softap_mode(void)
     esp_wifi_set_mode(WIFI_MODE_AP);
     esp_wifi_set_config(WIFI_IF_AP, &wifi_ap_config);
     esp_wifi_start();
-
-    ESP_LOGI(TAG, "==================================================");
-    ESP_LOGI(TAG, ">>> ĐÃ PHÁT WIFI DỰ PHÒNG: %s (Pass: %s) <<<", AP_SSID, AP_PASS);
-    ESP_LOGI(TAG, ">>> ĐỊA CHỈ TRUY CẬP: http://192.168.4.1 <<<");
-    ESP_LOGI(TAG, "==================================================");
+    ESP_LOGI(TAG, "Phat WiFi AP: %s (IP: 192.168.4.1)", AP_SSID);
 }
 
 static void init_wifi(void)
@@ -394,35 +360,24 @@ static void init_wifi(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    esp_wifi_set_max_tx_power(68); // Giảm nhẹ công suất đỉnh tránh sụt áp nguồn USB
-
-    ESP_LOGI(TAG, "Đang kết nối WiFi: %s ...", WIFI_SSID);
+    esp_wifi_set_max_tx_power(68);
 
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE, pdFALSE, pdMS_TO_TICKS(8000));
 
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "Kết nối WiFi Station thành công!");
+        ESP_LOGI(TAG, "Ket noi WiFi Station thanh cong");
     } else {
-        ESP_LOGW(TAG, "Không kết nối được WiFi '%s'. Đang tự động phát AP WiFi dự phòng...", WIFI_SSID);
+        ESP_LOGW(TAG, "Khong the noi WiFi '%s', chuyen sang AP...", WIFI_SSID);
         start_softap_mode();
     }
 }
 
-// ====================================================================
-// 7. HÀM MAIN
-// ====================================================================
 void app_main(void)
 {
-    // Vô hiệu hóa Brownout Detector (chống reset khi sụt áp nguồn USB lúc bật WiFi/Camera)
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
-    ESP_LOGI(TAG, "==================================================");
-    ESP_LOGI(TAG, " TRASHNET - ESP32-CAM AI CAPTURE & STREAM FIRMWARE");
-    ESP_LOGI(TAG, "==================================================");
-
-    // 1. Khởi tạo NVS Flash
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -447,11 +402,9 @@ void app_main(void)
     // 4. Kết nối WiFi
     init_wifi();
 
-    // 5. Khởi động Web Server HTTP trên Cổng 80
     start_webserver();
-
-    // 6. Khởi động Task Tự động chụp & gửi ảnh lên Server phân loại AI
+#if ENABLE_AUTO_UPLOAD
     xTaskCreate(auto_upload_task, "auto_upload_task", 4096, NULL, 5, NULL);
-
-    ESP_LOGI(TAG, "ESP32-CAM đã sẵn sàng chụp ảnh và gửi về Server!");
+#endif
+    ESP_LOGI(TAG, "ESP32-CAM da san sang");
 }

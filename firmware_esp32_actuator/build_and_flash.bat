@@ -43,9 +43,11 @@ if %ERRORLEVEL% NEQ 0 goto :FLASH_FAIL
 echo.
 echo =====================================================================
 echo [HOAN TAT] Nap thanh cong Firmware Actuator vao %com_port%!
+echo [DONG BO IP] Dang tu dong doc IP tu ESP32 va gan vao Web UI...
+call "%PYTHON%" "%~dp0..\find_esp_devices.py" --sync-com %com_port% --device actuator --timeout 8
 echo =====================================================================
 echo.
-set /p open_mon="Mo Serial Monitor de xem IP va test phim 1-4? (Y/N): "
+set /p open_mon="Mo Serial Monitor de test phim 1-4? (Y/N): "
 if /i "%open_mon%"=="Y" (
     call "%PYTHON%" "%IDF_PY%" -p %com_port% monitor
 )

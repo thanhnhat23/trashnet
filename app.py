@@ -10,8 +10,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import socket
 from PIL import Image
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 
 # Import Late Fusion Predictor (ResNet18 + YOLO11n-cls)
 from fusion.predictor import predict, RESNET_WEIGHT, YOLO_WEIGHT, reload_models
@@ -342,9 +343,11 @@ HISTORY_FILE = BASE_DIR / 'classification_history.json'
 
 DEFAULT_SETTINGS = {
     "enabled": True,
-    "actuator_ip": "http://172.16.0.116",
+    "actuator_ip": "http://172.16.2.237",
     "esp32_cam_ip": "http://172.16.0.100",
     "auto_scan_interval_sec": 3,
+    "ultrasonic_threshold_cm": 6.0,
+    "ultrasonic_auto_capture": True,
     "rotate_time_90_ms": 950,
     "rotate_time_90_rev_ms": 1010,
     "rotate_time_180_fwd_ms": 1850,
@@ -380,8 +383,56 @@ def save_actuator_settings(data):
 # Khởi tạo cài đặt từ file
 ACTUATOR_SETTINGS = load_actuator_settings()
 ENABLE_ESP32_ACTUATOR = ACTUATOR_SETTINGS.get('enabled', True)
-ESP32_ACTUATOR_IP = ACTUATOR_SETTINGS.get('actuator_ip', "http://172.16.0.116")
+ESP32_ACTUATOR_IP = ACTUATOR_SETTINGS.get('actuator_ip', "http://172.16.2.237")
 ESP32_CAM_IP = ACTUATOR_SETTINGS.get('esp32_cam_ip', "http://172.16.0.100")
+
+# ====================================================================
+# AUTO-DISCOVERY UDP LISTENER (Tự động nhận IP từ 2 ESP32 qua mạng LAN)
+# ====================================================================
+UDP_DISCOVERY_PORT = 5005
+
+def start_udp_discovery_listener():
+    def _listener():
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(('', UDP_DISCOVERY_PORT))
+            print(f"[AUTO-IP] UDP Discovery Listener dang lang nghe tren port {UDP_DISCOVERY_PORT}...")
+            while True:
+                data, addr = sock.recvfrom(512)
+                text = data.decode('utf-8', errors='ignore').strip()
+                if text.startswith("TRASHNET:"):
+                    parts = text.split(":")
+                    if len(parts) >= 3:
+                        dev = parts[1].strip().lower()
+                        dev_url = ":".join(parts[2:]).strip()
+                        if not dev_url.startswith("http"):
+                            dev_url = f"http://{dev_url}"
+                        
+                        settings = load_actuator_settings()
+                        updated = False
+                        global ESP32_ACTUATOR_IP, ESP32_CAM_IP
+                        if "actuator" in dev:
+                            if settings.get("actuator_ip") != dev_url:
+                                ESP32_ACTUATOR_IP = dev_url
+                                settings["actuator_ip"] = dev_url
+                                updated = True
+                                print(f"[AUTO-IP] >>> TU DONG GAN IP ACTUATOR: {dev_url}")
+                        elif "cam" in dev:
+                            if settings.get("esp32_cam_ip") != dev_url:
+                                ESP32_CAM_IP = dev_url
+                                settings["esp32_cam_ip"] = dev_url
+                                updated = True
+                                print(f"[AUTO-IP] >>> TU DONG GAN IP ESP32-CAM: {dev_url}")
+                        if updated:
+                            save_actuator_settings(settings)
+        except Exception as e:
+            print(f"[AUTO-IP] UDP Listener khoi tao bo qua: {e}")
+
+    th = threading.Thread(target=_listener, daemon=True)
+    th.start()
+
+start_udp_discovery_listener()
 
 def load_classification_history():
     if not HISTORY_FILE.exists():
@@ -462,37 +513,32 @@ def append_to_history(result_dict, pil_image=None, source="webcam"):
         print(f"[HISTORY] Lỗi thêm lịch sử: {e}")
         return None
 
-def _dispatch_esp32_actuator_req(url):
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
-            print(f"[ESP32-ACTUATOR] >>> Gửi lệnh thành công ({url}) - HTTP {resp.getcode()}")
-    except Exception as err:
-        print(f"[ESP32-ACTUATOR CẢNH BÁO] Không thể kết nối tới ESP32 Actuator ({url}): {err}")
-
 def send_command_to_esp32_actuator(label, display_name=None):
     """
-    Gửi tín hiệu điều khiển bất đồng bộ sang ESP32 Thường:
+    Gửi tín hiệu điều khiển sang ESP32 Thường đồng bộ và có xác nhận:
     1. Hiển thị loại rác và số ngăn lên màn hình LCD 1602
-    2. Servo 360 xoay mâm về ngăn tương ứng (Ngăn 1: 0°, Ngăn 2: 90°, Ngăn 3: 180°, Ngăn 4: -90°)
-    3. Servo 180 hất rác lướt êm theo ms (mở -> đợi 1.5s -> đóng về vị trí cũ)
+    2. Servo 360 xoay mâm về ngăn tương ứng
+    3. Servo 180 hất rác (500ms mở -> 1.5s chờ -> 320ms đóng)
     4. Servo 360 xoay ngược lại về Home để chống xoắn dây
     """
     if not ENABLE_ESP32_ACTUATOR:
-        return None
+        return {'dispatched': False, 'reason': 'Actuator disabled'}
 
     bin_info = get_bin_info_for_label(label)
     bin_num = bin_info['bin']
-    lcd_name = bin_info.get('lcd_title', label)
-
-    # Đảm bảo chuỗi tối đa 16 ký tự, chuẩn ASCII cho LCD 1602
+    lcd_name = display_name or bin_info.get('lcd_title', label)
     clean_name = str(lcd_name)[:16]
     url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/action?bin={bin_num}&label={label}&name={urllib.parse.quote(clean_name)}"
     
-    # Chạy trên Thread riêng biệt để không làm chậm phản hồi AI của Web
-    th = threading.Thread(target=_dispatch_esp32_actuator_req, args=(url,), daemon=True)
-    th.start()
-    return bin_info
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            status_code = resp.getcode()
+            print(f"[ESP32-ACTUATOR] >>> Đã gửi lệnh điều khiển NGĂN {bin_num} ({url}) - HTTP {status_code}")
+            return {'dispatched': True, 'bin_info': bin_info, 'http_code': status_code}
+    except Exception as err:
+        print(f"[ESP32-ACTUATOR CẢNH BÁO] Không thể kết nối tới ESP32 Actuator ({url}): {err}")
+        return {'dispatched': False, 'error': str(err), 'bin_info': bin_info}
 
 
 @app.route('/api/predict', methods=['POST'])
@@ -544,10 +590,12 @@ def handle_predict():
 
         formatted = format_prediction_result(raw_res)
 
-        # Trích xuất nhãn dự đoán tốt nhất và gửi tín hiệu sang ESP32 Actuator (4 ngăn + Servo 180° + LCD)
+        # Trích xuất nhãn dự đoán tốt nhất và gửi tín hiệu sang ESP32 Actuator
         best_label = formatted.get('class')
+        actuator_status = None
         if best_label:
-            send_command_to_esp32_actuator(best_label, formatted.get('name_vi'))
+            actuator_status = send_command_to_esp32_actuator(best_label, formatted.get('name_vi'))
+        formatted['actuator_status'] = actuator_status
 
         # Tự động lưu vào lịch sử phân loại trực tiếp trên file JSON
         append_to_history(formatted, pil_image=image, source=source)
@@ -638,6 +686,65 @@ def esp32_capture():
         return jsonify({'error': f'Lỗi khi xử lý ảnh từ ESP32-CAM: {str(e)}'}), 500
 
 
+@app.route('/api/esp32/stream', methods=['GET'])
+def esp32_stream_proxy():
+    """Proxy trực tiếp luồng MJPEG từ ESP32-CAM (loại bỏ 100% lỗi CORS và kết nối mượt mà)."""
+    cam_ip = request.args.get('ip') or ESP32_CAM_IP
+    cam_url = f"{cam_ip.rstrip('/')}/stream"
+    
+    def generate():
+        try:
+            req = urllib.request.Request(cam_url, headers={'User-Agent': 'TrashNet-StreamProxy/1.0'})
+            with urllib.request.urlopen(req, timeout=5.0) as stream_resp:
+                while True:
+                    chunk = stream_resp.read(4096)
+                    if not chunk:
+                        break
+                    yield chunk
+        except Exception as e:
+            return
+            
+    return Response(
+        generate(),
+        mimetype='multipart/x-mixed-replace; boundary=123456789000000000000987654321',
+        headers={
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'Access-Control-Allow-Origin': '*'
+        }
+    )
+
+
+@app.route('/api/device/register', methods=['POST', 'GET'])
+def register_device():
+    """Endpoint tự động đăng ký IP cho ESP32 hoặc sync tool."""
+    data = request.get_json(silent=True) or request.args.to_dict()
+    dev = (data.get('device') or data.get('type') or '').lower()
+    ip = data.get('ip') or data.get('url') or request.remote_addr
+    if not ip.startswith('http'):
+        ip = f"http://{ip}"
+    
+    settings = load_actuator_settings()
+    updated = False
+    global ESP32_ACTUATOR_IP, ESP32_CAM_IP
+
+    if 'actuator' in dev:
+        ESP32_ACTUATOR_IP = ip
+        settings['actuator_ip'] = ip
+        updated = True
+    elif 'cam' in dev:
+        ESP32_CAM_IP = ip
+        settings['esp32_cam_ip'] = ip
+        updated = True
+    
+    if updated:
+        save_actuator_settings(settings)
+        print(f"[AUTO-IP] Đăng ký thành công {dev.upper()}: {ip}")
+        return jsonify({'status': 'ok', 'device': dev, 'ip': ip})
+    return jsonify({'status': 'ignored', 'message': 'Unknown device type'}), 400
+
+
 @app.route('/api/actuator/settings', methods=['GET', 'POST'])
 def api_actuator_settings():
     """Lấy hoặc cập nhật thông số hiệu chuẩn thời gian và IP của Actuator / CAM trực tiếp vào file JSON."""
@@ -648,6 +755,7 @@ def api_actuator_settings():
         
         # Cập nhật các trường cấu hình
         for key in ['enabled', 'actuator_ip', 'esp32_cam_ip', 'auto_scan_interval_sec',
+                    'ultrasonic_threshold_cm', 'ultrasonic_auto_capture',
                     'rotate_time_90_ms', 'rotate_time_90_rev_ms', 'rotate_time_180_fwd_ms', 'rotate_time_180_rev_ms',
                     'dump_fwd_time_ms', 'dump_rev_time_ms', 'dump_wait_ms', 'dump_inverted',
                     'dump_rest_angle', 'dump_target_angle']:
@@ -658,7 +766,7 @@ def api_actuator_settings():
         save_actuator_settings(current)
         ACTUATOR_SETTINGS = current
         ENABLE_ESP32_ACTUATOR = current.get('enabled', True)
-        ESP32_ACTUATOR_IP = current.get('actuator_ip', "http://172.16.0.116")
+        ESP32_ACTUATOR_IP = current.get('actuator_ip', "http://172.16.2.237")
         ESP32_CAM_IP = current.get('esp32_cam_ip', "http://172.16.0.100")
         
         # Đồng bộ trực tiếp sang phần cứng ESP32 Actuator (lưu luôn vào NVS Flash của ESP32)
@@ -699,7 +807,7 @@ def api_actuator_settings():
     live_status = None
     if settings.get('enabled', True):
         try:
-            url = f"{settings.get('actuator_ip', 'http://172.16.0.116').rstrip('/')}/status"
+            url = f"{settings.get('actuator_ip', 'http://172.16.2.237').rstrip('/')}/status"
             req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
             with urllib.request.urlopen(req, timeout=1.5) as resp:
                 live_status = json.loads(resp.read().decode('utf-8'))
@@ -782,18 +890,18 @@ _actuator_status_cache = {'time': 0, 'data': None}
 
 @app.route('/api/actuator/status', methods=['GET'])
 def actuator_status():
-    """Fetch status from ESP32 Actuator board (với 250ms debounce cache chống nghẽn socket)."""
+    """Fetch status from ESP32 Actuator board (với 450ms debounce cache chống nghẽn socket)."""
     if not ENABLE_ESP32_ACTUATOR:
         return jsonify({'online': False, 'enabled': False, 'message': 'Actuator disabled'})
     
     now = time.time()
-    if now - _actuator_status_cache['time'] < 0.25 and _actuator_status_cache['data'] is not None:
+    if now - _actuator_status_cache['time'] < 0.45 and _actuator_status_cache['data'] is not None:
         return jsonify(_actuator_status_cache['data'])
 
     try:
         url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/status"
         req = urllib.request.Request(url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
-        with urllib.request.urlopen(req, timeout=1.8) as resp:
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             data['enabled'] = True
             data['ip'] = ESP32_ACTUATOR_IP

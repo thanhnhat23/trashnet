@@ -1,0 +1,26 @@
+# Core Deep Learning with GPU (CUDA 12.4)
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch>=2.6.0
+torchvision>=0.21.0
+
+# Computer Vision & Models
+ultralytics>=8.4.0
+opencv-python>=4.8.0
+pillow>=10.0.0
+
+# Web Application & API
+flask>=3.0.0
+werkzeug>=3.0.0
+requests>=2.31.0
+
+# Machine Learning & Data Processing
+numpy>=1.24.0
+scikit-learn>=1.4.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Visualization & Monitoring
+matplotlib>=3.8.0
+tqdm>=4.66.0
+psutil>=5.9.0
+

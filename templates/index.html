@@ -143,7 +143,7 @@
                                                         <span class="input-group-text bg-input border-subtle text-secondary font-mono" style="font-size: 0.72rem;">
                                                             <i class="fa-solid fa-microchip me-1"></i> THÙNG
                                                         </span>
-                                                        <input type="text" id="actuatorIpInputMain" class="form-control font-mono" placeholder="http://172.16.0.116" value="http://172.16.0.116" style="font-size: 0.78rem;">
+                                                        <input type="text" id="actuatorIpInputMain" class="form-control font-mono" placeholder="http://172.16.2.237" value="http://172.16.2.237" style="font-size: 0.78rem;">
                                                         <button type="button" class="btn btn-outline-mono text-nowrap" id="btnConnectActuatorMain" onclick="connectActuatorFromMain()">
                                                             Nối Thùng
                                                         </button>
@@ -196,6 +196,29 @@
                                                 <span class="fs-6">Chụp & Nhận Diện Ngay</span>
                                             </button>
 
+                                            <!-- Live Ultrasonic Sensor Detection Card -->
+                                            <div class="p-2 bg-card rounded-1 border border-subtle font-mono" id="ultrasonicBanner">
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <span class="small text-secondary fw-semibold">
+                                                        <i class="fa-solid fa-satellite-dish me-1"></i> CẢM BIẾN SIÊU ÂM (TRIG D5 / ECHO D27)
+                                                    </span>
+                                                    <span class="badge border border-subtle text-secondary" id="ultrasonicLiveBadge">
+                                                        <span class="status-dot"></span> <span id="ultrasonicDistanceVal">-- cm</span>
+                                                    </span>
+                                                </div>
+                                                <div class="d-flex align-items-center justify-content-between">
+                                                    <div class="small text-muted" id="ultrasonicStatusHint" style="font-size: 0.72rem;">
+                                                        Ngưỡng chụp tự động: &lt; 6.0 cm
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="small text-secondary" style="font-size: 0.72rem;">Tự chụp &lt;6cm:</span>
+                                                        <div class="form-check form-switch mb-0">
+                                                            <input class="form-check-input" type="checkbox" id="ultrasonicAutoCheck" checked onchange="toggleUltrasonicAuto(this.checked)">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div class="d-flex align-items-center justify-content-between gap-2">
                                                 <div class="d-flex gap-2">
                                                     <button type="button" class="btn btn-outline-mono btn-sm" onclick="disconnectEsp32()" title="Tắt camera">
@@ -206,7 +229,7 @@
                                                     </button>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2 px-2 py-1 bg-card rounded-1 border border-subtle">
-                                                    <span class="small text-secondary">Tự động quét:</span>
+                                                    <span class="small text-secondary">Quét định kỳ:</span>
                                                     <div class="form-check form-switch mb-0">
                                                         <input class="form-check-input" type="checkbox" id="esp32AutoScanCheck" onchange="toggleEsp32AutoScan(this.checked)">
                                                     </div>
@@ -773,7 +796,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                 <div class="d-flex gap-2 align-items-center">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text bg-input border-subtle text-secondary font-mono">IP THÙNG RÁC</span>
-                                        <input type="text" id="actuatorIpInput" class="form-control font-mono" placeholder="http://172.16.0.116" value="http://172.16.0.116">
+                                        <input type="text" id="actuatorIpInput" class="form-control font-mono" placeholder="http://172.16.2.237" value="http://172.16.2.237">
                                     </div>
                                     <button type="button" class="btn btn-white btn-sm text-nowrap" id="btnConnectActuator" onclick="connectActuator()">
                                         <i class="fa-solid fa-plug me-1"></i> Kết nối
@@ -1087,7 +1110,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                             </div>
 
                             <!-- Card 2: Camera & Auto-Scan Configuration -->
-                            <div class="clean-card p-3">
+                            <div class="clean-card p-3 mb-3">
                                 <div class="fw-semibold text-white mb-2">Cấu Hình Camera ESP32 & Auto-Scan</div>
                                 <div class="row g-3 align-items-end">
                                     <div class="col-12 col-md-5">
@@ -1110,6 +1133,44 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                 </div>
                             </div>
 
+                            <!-- Card 3: Cảm Biến Siêu Âm Phát Hiện Rác Tự Động -->
+                            <div class="clean-card p-3">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="fw-semibold text-white">
+                                        <i class="fa-solid fa-satellite-dish text-white me-1"></i> Cảm Biến Siêu Âm (HC-SR04 / D5 - D27)
+                                    </div>
+                                    <span class="badge border border-subtle text-secondary font-mono" id="cfg_ultrasonic_live_status">
+                                        Khoảng cách: -- cm
+                                    </span>
+                                </div>
+                                <div class="text-secondary small font-mono mb-3">
+                                    Cảm biến nối với ESP32 Thường (TRIG: D5, ECHO: D27). Khi có rác đặt gần hơn ngưỡng cài đặt, hệ thống tự động điều khiển ESP32-CAM chụp &amp; phân loại.
+                                </div>
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12 col-md-5">
+                                        <label class="small text-muted font-mono">Ngưỡng khoảng cách phát hiện rác (cm)</label>
+                                        <div class="input-group input-group-sm">
+                                            <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepUltrasonicThreshold(-0.5)">-0.5</button>
+                                            <input type="number" id="cfg_ultrasonic_threshold_cm" class="form-control text-center font-mono" value="6.0" min="2" max="50" step="0.5">
+                                            <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepUltrasonicThreshold(0.5)">+0.5</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <div class="form-check form-switch pt-3">
+                                            <input class="form-check-input" type="checkbox" id="cfg_ultrasonic_auto_enabled" checked>
+                                            <label class="form-check-label small font-mono text-secondary" for="cfg_ultrasonic_auto_enabled">
+                                                Kích hoạt tự động chụp
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-3">
+                                        <button type="button" class="btn btn-white btn-sm w-100 font-mono" onclick="saveUltrasonicSettingsFromUi()">
+                                            Lưu Cài Đặt Siêu Âm
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -1122,6 +1183,6 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Main Controller JS -->
-    <script src="/static/js/main.js?v=13.0"></script>
+    <script src="/static/js/main.js?v=22.0"></script>
 </body>
 </html>

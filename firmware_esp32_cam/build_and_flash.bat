@@ -41,7 +41,9 @@ if %ERRORLEVEL% NEQ 0 goto :FLASH_FAIL
 
 echo.
 echo =====================================================================
-echo [HOAN TAT] Nap thanh cong!
+echo [HOAN TAT] Nap thanh cong ESP32-CAM vao %com_port%!
+echo [DONG BO IP] Dang tu dong doc IP tu ESP32-CAM va gan vao Web UI...
+call "%PYTHON%" "%~dp0..\find_esp_devices.py" --sync-com %com_port% --device cam --timeout 8
 echo =====================================================================
 echo.
 set /p open_mon="Mo Serial Monitor ngay? (Y/N): "

@@ -26,6 +26,7 @@
 
 #include "soc/rtc_cntl_reg.h"
 #include "soc/soc.h"
+#include "lwip/sockets.h"
 
 #include "wifi_config.h"
 
@@ -36,11 +37,19 @@ static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
 static bool s_is_wifi_connected = false;
 
-// ====================================================================
-// 1. CẤU HÌNH GPIO VÀ THÔNG SỐ SERVO & LCD 1602
-// ====================================================================
-#define SERVO_180_GPIO 19 // Servo 180 (MG995) hất rác (Chân G19 / D19)
-#define SERVO_360_GPIO 18 // Servo 360 (MG996R) quay mâm 4 góc
+#define SERVO_180_GPIO 19
+#define SERVO_360_GPIO 18
+
+#define ENABLE_ULTRASONIC_SENSOR 0
+#define ULTRASONIC_TRIG_GPIO 5
+#define ULTRASONIC_ECHO_GPIO 27
+#define ULTRASONIC_DETECT_THRESHOLD_CM 6.5f
+#define ULTRASONIC_MEDIAN_SIZE 3
+#define ULTRASONIC_STABLE_COUNT 2
+#define ULTRASONIC_MIN_VALID_CM 1.0f
+
+static float s_ultrasonic_distance_cm = -1.0f;
+static bool s_ultrasonic_detected = false;
 
 #define I2C_MASTER_SDA_IO 21
 #define I2C_MASTER_SCL_IO 22
@@ -52,24 +61,21 @@ static bool s_is_wifi_connected = false;
 #define ENABLE 0x04
 #define RS 0x01
 
-// Thông số Servo Hất Rác
-#define SERVO_180_REST_ANGLE 0 // Hằng số góc nghỉ cho API /servo
+#define SERVO_180_REST_ANGLE 0
 
-static int s_dump_rest_angle = 0; // Vị trí cũ / đóng ban đầu (độ)
-static int s_dump_target_angle = 90; // Vị trí mở hất rác (độ)
-static bool s_dump_inverted =
-    false; // Cờ đảo chiều quay (false: 0->90->0, true: 180->90->180)
-static int s_dump_fwd_time_ms = 500; // Thời gian lướt mở hất rác (ms)
-static int s_dump_rev_time_ms = 500; // Thời gian lướt đóng nắp về cũ (ms)
-static int s_dump_wait_ms = 1500; // Thời gian giữ mở để rác trượt xuống (ms)
+static int s_dump_rest_angle = 0;
+static int s_dump_target_angle = 90;
+static bool s_dump_inverted = false;
+static int s_dump_fwd_time_ms = 500;
+static int s_dump_rev_time_ms = 500;
+static int s_dump_wait_ms = 1500;
 
-#define SERVO_360_SPEED_FWD_US 1750 // Xung quay thuận (us)
-#define SERVO_360_SPEED_REV_US 1250 // Xung quay nghịch (us)
-#define SERVO_360_STOP_US 1500      // Xung dừng / phanh chủ động (us)
+#define SERVO_360_SPEED_FWD_US 1750
+#define SERVO_360_SPEED_REV_US 1250
+#define SERVO_360_STOP_US 1500
 
-// Thời gian quay chuẩn
-static int s_rotate_time_90_ms = 950;          // Thời gian quay đi 90 độ (Ngăn 2 thuận, Ngăn 4 nghịch)
-static int s_rotate_time_90_rev_ms = 1010;     // Thời gian quay về 90 độ (về lại Home sau khi hất rác)
+static int s_rotate_time_90_ms = 950;
+static int s_rotate_time_90_rev_ms = 1010;
 static int s_rotate_time_180_fwd_ms = 1850;
 static int s_rotate_time_180_rev_ms = 1955;
 
@@ -77,11 +83,10 @@ static const char *TAG = "TRASHNET_ACTUATOR";
 static int current_position = 0;
 static int s_current_servo_angle = SERVO_180_REST_ANGLE;
 static bool s_is_busy = false;
+static int64_t s_busy_start_time = 0;
+#define BUSY_WATCHDOG_TIMEOUT_US (25 * 1000000LL)
 static char s_last_trash_name[32] = "San sang";
 
-// ====================================================================
-// LƯU TRỮ VÀ KHÔI PHỤC THÔNG SỐ HIỆU CHUẨN VÀO FLASH NVS (LƯU TRỰC TIẾP)
-// ====================================================================
 static void calib_save_to_nvs(void) {
   nvs_handle_t handle;
   esp_err_t err = nvs_open("act_calib", NVS_READWRITE, &handle);
@@ -98,9 +103,9 @@ static void calib_save_to_nvs(void) {
     nvs_set_u8(handle, "inv", s_dump_inverted ? 1 : 0);
     nvs_commit(handle);
     nvs_close(handle);
-    ESP_LOGI(TAG, ">>> [NVS FLASH] Da luu thanh cong thong so vao bo nho Flash!");
+    ESP_LOGI(TAG, "Da luu thong so vao Flash NVS");
   } else {
-    ESP_LOGE(TAG, ">>> [NVS FLASH] Khong the mo NVS de luu: %s", esp_err_to_name(err));
+    ESP_LOGE(TAG, "Loi mo NVS: %s", esp_err_to_name(err));
   }
 }
 
@@ -131,43 +136,36 @@ static void calib_load_from_nvs(void) {
       s_dump_target_angle = 90;
     }
     nvs_close(handle);
-    ESP_LOGI(TAG, ">>> [NVS FLASH] Da tai thong so calib tu Flash NVS: rot90_fwd=%dms, rot90_rev=%dms, 180f=%dms, 180r=%dms, dumpf=%dms, dumpr=%dms, dumpw=%dms, rest_ang=%d, tgt_ang=%d, inv=%d",
-             s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
-             s_dump_fwd_time_ms, s_dump_rev_time_ms, s_dump_wait_ms, s_dump_rest_angle, s_dump_target_angle, s_dump_inverted ? 1 : 0);
   } else {
     s_dump_rest_angle = s_dump_inverted ? 180 : 0;
     s_dump_target_angle = 90;
-    ESP_LOGI(TAG, ">>> [NVS FLASH] Chua co thong so da luu, dung mac dinh: rot90_fwd=%dms, rot90_rev=%dms, 180f=%dms, 180r=%dms",
-             s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms);
   }
 }
 
-// Cấu trúc hàng đợi lệnh phân loại rác
-// Các loại lệnh điều khiển phần cứng đưa vào hàng đợi tuần tự (không xung đột)
 typedef enum {
-  CMD_BIN_ACTION = 0, // Chu trình đầy đủ: Xoay 360 -> Hất rác 180 -> Về Home
-  CMD_DUMP_ONLY,      // Chỉ hất rác 180 (Mở -> Chờ -> Đóng)
-  CMD_SERVO_ANGLE,    // Đặt góc trực tiếp cho Servo 180
-  CMD_SERVO_INVERT,   // Đảo chiều quay Servo 180
-  CMD_SERVO_RAW_180,  // Quay Servo 180 theo hướng và thời gian ms
-  CMD_ROTATE_3_FWD,   // Test chỉ quay đi Ngăn 3 (180 độ)
-  CMD_ROTATE_3_REV,   // Test chỉ quay về Home từ Ngăn 3
-  CMD_ROTATE_2_FWD,   // Test chỉ quay đi Ngăn 2 (+90 độ)
-  CMD_ROTATE_2_REV,   // Test chỉ quay về Home từ Ngăn 2 (-90 độ)
-  CMD_ROTATE_4_FWD,   // Test chỉ quay đi Ngăn 4 (-90 độ)
-  CMD_ROTATE_4_REV    // Test chỉ quay về Home từ Ngăn 4 (+90 độ)
+  CMD_BIN_ACTION = 0,
+  CMD_DUMP_ONLY,
+  CMD_SERVO_ANGLE,
+  CMD_SERVO_INVERT,
+  CMD_SERVO_RAW_180,
+  CMD_ROTATE_3_FWD,
+  CMD_ROTATE_3_REV,
+  CMD_ROTATE_2_FWD,
+  CMD_ROTATE_2_REV,
+  CMD_ROTATE_4_FWD,
+  CMD_ROTATE_4_REV
 } cmd_type_t;
 
 typedef struct {
   cmd_type_t type;
-  int bin_number;              // 1 đến 4
-  int param;                   // Tham số bổ trợ (ví dụ góc angle)
-  char trash_label[32];        // Tên kỹ thuật (plastic, metal...)
-  char trash_display_name[32]; // Tên hiển thị tiếng Việt
+  int bin_number;
+  int param;
+  char trash_label[32];
+  char trash_display_name[32];
 } bin_command_t;
 
 static QueueHandle_t s_bin_cmd_queue = NULL;
-static SemaphoreHandle_t s_servo_mutex = NULL; // Khóa bảo vệ PWM LEDC chống xung đột đa luồng
+static SemaphoreHandle_t s_servo_mutex = NULL;
 
 // ====================================================================
 // 2. DRIVER LCD 1602 I2C
@@ -542,44 +540,165 @@ static void servo_180_dump_trash(void) {
            start_pos);
 }
 
-// Khởi tạo toàn bộ phần cứng
+// ====================================================================
+// DRIVER CẢM BIẾN SIÊU ÂM (HC-SR04 / HC-SR04P)
+// TRIG: GPIO 5 (D5), ECHO: GPIO 27 (D27)
+// ====================================================================
+#if ENABLE_ULTRASONIC_SENSOR
+static void ultrasonic_init(void) {
+  gpio_config_t trig_conf = {
+      .pin_bit_mask = (1ULL << ULTRASONIC_TRIG_GPIO),
+      .mode = GPIO_MODE_OUTPUT,
+      .pull_up_en = GPIO_PULLUP_DISABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&trig_conf);
+  gpio_set_level(ULTRASONIC_TRIG_GPIO, 0);
+
+  gpio_config_t echo_conf = {
+      .pin_bit_mask = (1ULL << ULTRASONIC_ECHO_GPIO),
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_DISABLE,
+      .pull_down_en = GPIO_PULLDOWN_ENABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&echo_conf);
+}
+
+static float ultrasonic_measure_raw_cm(void) {
+  if (gpio_get_level(ULTRASONIC_ECHO_GPIO) != 0) {
+    int64_t t_wait_low = esp_timer_get_time();
+    while (gpio_get_level(ULTRASONIC_ECHO_GPIO) != 0) {
+      if (esp_timer_get_time() - t_wait_low > 2000) return -1.0f;
+    }
+  }
+
+  gpio_set_level(ULTRASONIC_TRIG_GPIO, 0);
+  esp_rom_delay_us(4);
+  gpio_set_level(ULTRASONIC_TRIG_GPIO, 1);
+  esp_rom_delay_us(20);
+  gpio_set_level(ULTRASONIC_TRIG_GPIO, 0);
+
+  int64_t t_wait_high = esp_timer_get_time();
+  while (gpio_get_level(ULTRASONIC_ECHO_GPIO) == 0) {
+    if (esp_timer_get_time() - t_wait_high > 10000) return -2.0f;
+  }
+
+  int64_t t_echo_start = esp_timer_get_time();
+  while (gpio_get_level(ULTRASONIC_ECHO_GPIO) == 1) {
+    if (esp_timer_get_time() - t_echo_start > 35000) return -3.0f;
+  }
+  int64_t t_echo_end = esp_timer_get_time();
+
+  int64_t duration_us = t_echo_end - t_echo_start;
+  float dist_cm = (float)duration_us / 58.2f;
+
+  if (dist_cm < 1.0f || dist_cm > 400.0f) return -4.0f;
+  return dist_cm;
+}
+
+static void sort_float_array(float *arr, int n) {
+  for (int i = 0; i < n - 1; i++) {
+    for (int j = 0; j < n - i - 1; j++) {
+      if (arr[j] > arr[j + 1]) {
+        float tmp = arr[j];
+        arr[j] = arr[j + 1];
+        arr[j + 1] = tmp;
+      }
+    }
+  }
+}
+
+static void ultrasonic_task(void *pvParameters) {
+  vTaskDelay(pdMS_TO_TICKS(1500));
+  int missed_count = 0;
+  int stable_detect_count = 0;
+  int stable_clear_count = 0;
+
+  float ring_buf[ULTRASONIC_MEDIAN_SIZE];
+  int ring_idx = 0;
+  bool ring_filled = false;
+  for (int i = 0; i < ULTRASONIC_MEDIAN_SIZE; i++) ring_buf[i] = 999.0f;
+
+  while (1) {
+    float d = ultrasonic_measure_raw_cm();
+    if (d >= ULTRASONIC_MIN_VALID_CM && d <= 400.0f) {
+      missed_count = 0;
+      ring_buf[ring_idx] = d;
+      ring_idx = (ring_idx + 1) % ULTRASONIC_MEDIAN_SIZE;
+      if (ring_idx == 0) ring_filled = true;
+
+      int count = ring_filled ? ULTRASONIC_MEDIAN_SIZE : ring_idx;
+      if (count > 0) {
+        float sorted[ULTRASONIC_MEDIAN_SIZE];
+        for (int i = 0; i < count; i++) sorted[i] = ring_buf[i];
+        sort_float_array(sorted, count);
+        s_ultrasonic_distance_cm = sorted[count / 2];
+      }
+    } else {
+      missed_count++;
+      if (missed_count >= 3) {
+        s_ultrasonic_distance_cm = 999.0f;
+        stable_detect_count = 0;
+        for (int i = 0; i < ULTRASONIC_MEDIAN_SIZE; i++) ring_buf[i] = 999.0f;
+        ring_idx = 0;
+        ring_filled = false;
+      }
+    }
+
+    bool raw_below = (s_ultrasonic_distance_cm >= ULTRASONIC_MIN_VALID_CM &&
+                      s_ultrasonic_distance_cm < ULTRASONIC_DETECT_THRESHOLD_CM);
+    if (raw_below) {
+      stable_detect_count++;
+      stable_clear_count = 0;
+    } else {
+      stable_clear_count++;
+      if (stable_clear_count >= 2) stable_detect_count = 0;
+    }
+
+    s_ultrasonic_detected = (stable_detect_count >= ULTRASONIC_STABLE_COUNT);
+    vTaskDelay(pdMS_TO_TICKS(80));
+  }
+}
+#endif
+
 static void hardware_init(void) {
   if (s_servo_mutex == NULL) {
     s_servo_mutex = xSemaphoreCreateMutex();
   }
   servo_hardware_init();
   servo_360_stop();
-  servo_180_stop(); // Không ép servo gồng ngay lúc vừa bật nguồn để chống sụt
-                    // áp
+  servo_180_stop();
 
   lcd_init();
-  ESP_LOGI(TAG, "Hardware Initialized (Servo 360 [G18] + Servo 180 [G19 / D19] "
-                "+ LCD 1602)!");
+#if ENABLE_ULTRASONIC_SENSOR
+  ultrasonic_init();
+  ESP_LOGI(TAG, "Hardware Initialized (Servo 360 [G18] + Servo 180 [G19] + LCD 1602 + Ultrasonic [TRIG G%d, ECHO G%d])",
+           ULTRASONIC_TRIG_GPIO, ULTRASONIC_ECHO_GPIO);
+#else
+  ESP_LOGI(TAG, "Hardware Initialized (Servo 360 [G18] + Servo 180 [G19] + LCD 1602)");
+#endif
 }
 
-// ====================================================================
-// 4. CHU TRÌNH PHÂN LOẠI RÁC 4 GÓC (ĐỒNG BỘ: XOAY 360 -> HẤT 180 -> VỀ HOME)
-// ====================================================================
 static void process_bin_action(int bin_number, const char *display_name) {
   const char *trash_categories[4] = {
-      "CHAY DUOC", // Ngăn 1: Rác Cháy Được (burnable, biological)
-      "THUY TINH", // Ngăn 2: Thủy Tinh (glass)
-      "KIM LOAI",  // Ngăn 3: Kim Loại (metal)
-      "NHUA (PET)" // Ngăn 4: Nhựa & Chai PET (plastic)
+      "CHAY DUOC",
+      "THUY TINH",
+      "KIM LOAI",
+      "NHUA (PET)"
   };
 
-  if (bin_number < 1 || bin_number > 4)
-    return;
+  if (bin_number < 1 || bin_number > 4) return;
   s_is_busy = true;
+  s_busy_start_time = esp_timer_get_time();
 
   int target_idx = bin_number - 1;
   const char *category = trash_categories[target_idx];
 
-  // Dòng 1 LCD: "NGAN 1: CHAY DUO" (16 ký tự)
   char line1[32];
   snprintf(line1, sizeof(line1), "NGAN %d: %-8s", bin_number, category);
 
-  // Dòng 2 LCD: Tên chi tiết rác (16 ký tự)
   char line2[32];
   if (display_name && strlen(display_name) > 0) {
     snprintf(line2, sizeof(line2), "%-16.16s", display_name);
@@ -590,19 +709,11 @@ static void process_bin_action(int bin_number, const char *display_name) {
   strncpy(s_last_trash_name, line2, sizeof(s_last_trash_name) - 1);
   s_last_trash_name[sizeof(s_last_trash_name) - 1] = '\0';
 
-  ESP_LOGI(TAG, "==================================================");
-  ESP_LOGI(TAG, ">>> BAT DAU CHU TRINH DONG BO: Ngan %d [%s] - %s", bin_number,
-           category, line2);
+  ESP_LOGI(TAG, ">>> CHU TRINH: Ngan %d [%s] - %s", bin_number, category, line2);
 
-  // 1. Hiển thị thông tin nhận diện lên LCD 1602
   lcd_display_lines(line1, line2);
   vTaskDelay(pdMS_TO_TICKS(1000));
 
-  // 2. Tính toán hướng và thời gian quay của Servo 360
-  // Ngăn 1: Vị trí Home (0 độ, không cần quay)
-  // Ngăn 2: Quay thuận 90 độ
-  // Ngăn 3: Quay thuận 180 độ (sử dụng thời gian đi và về độc lập để không bị
-  // lệch) Ngăn 4: Quay nghịch 90 độ (đường ngắn nhất)
   int dir = 0;
   int duration_go = 0;
   int duration_ret = 0;
@@ -625,55 +736,47 @@ static void process_bin_action(int bin_number, const char *display_name) {
     duration_ret = s_rotate_time_90_rev_ms;
   }
 
-  // 3. Servo 360 quay từ Home đến góc thùng rác tương ứng
   if (duration_go > 0) {
     current_position = target_idx;
     char rotate_msg[32];
     snprintf(rotate_msg, sizeof(rotate_msg), "XOAY DEN NGAN %d", bin_number);
     lcd_display_lines(line1, rotate_msg);
-
-    ESP_LOGI(TAG, ">>> [1/3] Servo 360: Quay %s den Ngan %d (%d ms)",
-             dir > 0 ? "thuan" : "nghich", bin_number, duration_go);
     servo_360_rotate_raw(dir, duration_go);
-    vTaskDelay(pdMS_TO_TICKS(400)); // Chờ thùng ổn định
+    vTaskDelay(pdMS_TO_TICKS(400));
   } else {
     current_position = 0;
-    ESP_LOGI(TAG,
-             ">>> [1/3] Ngan 1 o ngay vi tri Home, khong can quay Servo 360");
   }
 
-  // 4. Servo 180 hất rác xuống (180 độ -> 90 độ -> đợi rác rơi -> 180 độ)
   lcd_display_lines(line1, "DANG HAT RAC...");
-  ESP_LOGI(TAG, ">>> [2/3] Servo 180: Bat dau hat rac xuong");
   servo_180_dump_trash();
 
-  // 5. Servo 360 quay NGƯỢC LẠI để về đúng vị trí Home ban đầu (chống xoắn rối
-  // dây)
   if (duration_ret > 0) {
     lcd_display_lines(line1, "DANG VE VI TRI..");
-    ESP_LOGI(TAG,
-             ">>> [3/3] Servo 360: Quay nguoc %s VE LAI HOME (%d ms) (tranh "
-             "roi day)",
-             (-dir) > 0 ? "thuan" : "nghich", duration_ret);
     servo_360_rotate_raw(-dir, duration_ret);
     vTaskDelay(pdMS_TO_TICKS(400));
   }
-  current_position = 0; // Đã về vị trí Home ban đầu an toàn
+  current_position = 0;
 
-  // 6. Hoàn tất chu trình, hiển thị sẵn sàng nhận rác tiếp theo
   lcd_show_ready();
   s_is_busy = false;
-  ESP_LOGI(TAG, ">>> HOAN TAT CHU TRINH NGAN %d! He thong da ve lai vi tri cu.",
-           bin_number);
-  ESP_LOGI(TAG, "==================================================");
+  ESP_LOGI(TAG, ">>> HOAN TAT NGAN %d", bin_number);
 }
 
-// Task chạy ngầm tuần tự hóa mọi lệnh phần cứng (chống xung đột PWM đa luồng & chống treo Servo 180)
 static void actuator_worker_task(void *pvParameters) {
   bin_command_t cmd;
   while (1) {
-    if (xQueueReceive(s_bin_cmd_queue, &cmd, portMAX_DELAY) == pdTRUE) {
+    if (s_is_busy && s_busy_start_time > 0) {
+      int64_t elapsed = esp_timer_get_time() - s_busy_start_time;
+      if (elapsed > BUSY_WATCHDOG_TIMEOUT_US) {
+        ESP_LOGW(TAG, ">>> [WATCHDOG] Force reset s_is_busy.");
+        s_is_busy = false;
+        s_busy_start_time = 0;
+      }
+    }
+
+    if (xQueueReceive(s_bin_cmd_queue, &cmd, pdMS_TO_TICKS(500)) == pdTRUE) {
       s_is_busy = true;
+      s_busy_start_time = esp_timer_get_time();
       switch (cmd.type) {
         case CMD_BIN_ACTION:
           process_bin_action(cmd.bin_number, cmd.trash_display_name);
@@ -724,6 +827,7 @@ static void actuator_worker_task(void *pvParameters) {
           break;
       }
       s_is_busy = false;
+      s_busy_start_time = 0;
     }
   }
 }
@@ -798,8 +902,14 @@ static esp_err_t http_action_handler(httpd_req_t *req) {
           sizeof(cmd.trash_display_name) - 1);
   cmd.trash_display_name[sizeof(cmd.trash_display_name) - 1] = '\0';
 
-  // Đẩy vào hàng đợi để task ngầm xử lý tuần tự (không chặn HTTP task)
-  xQueueSend(s_bin_cmd_queue, &cmd, 0);
+  // Đẩy vào hàng đợi tuần tự (chờ tối đa 150ms nếu hàng đợi đang bận xử lý)
+  BaseType_t q_res = xQueueSend(s_bin_cmd_queue, &cmd, pdMS_TO_TICKS(150));
+  if (q_res != pdTRUE) {
+    httpd_resp_set_status(req, "503 Service Unavailable");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    return httpd_resp_send(req, "{\"status\":\"busy\",\"message\":\"He thong dang ban xu ly chu trinh truoc\"}", HTTPD_RESP_USE_STRLEN);
+  }
 
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -819,18 +929,37 @@ static esp_err_t http_status_handler(httpd_req_t *req) {
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Connection", "close");
 
-  char resp[450];
+  char resp[580];
   snprintf(resp, sizeof(resp),
            "{\"online\":true,\"current_bin\":%d,\"current_angle\":%d,\"servo_angle\":%d,"
            "\"rotate_time_ms\":%d,\"rotate_90_ms\":%d,\"rotate_90_rev_ms\":%d,\"rotate_180_fwd_ms\":%d,\"rotate_180_rev_ms\":%d,"
            "\"dump_fwd_ms\":%d,\"dump_rev_ms\":%d,\"dump_wait_ms\":%d,\"inverted\":%s,"
-           "\"rest_angle\":%d,\"dump_angle\":%d,\"is_busy\":%s,\"last_trash\":\"%s\"}",
+           "\"rest_angle\":%d,\"dump_angle\":%d,\"is_busy\":%s,\"last_trash\":\"%s\","
+           "\"distance_cm\":%.1f,\"object_detected\":%s,\"threshold_cm\":%.1f}",
            current_position + 1, current_position * 90, s_current_servo_angle,
            s_rotate_time_90_ms, s_rotate_time_90_ms, s_rotate_time_90_rev_ms, s_rotate_time_180_fwd_ms, s_rotate_time_180_rev_ms,
            s_dump_fwd_time_ms, s_dump_rev_time_ms, s_dump_wait_ms,
            s_dump_inverted ? "true" : "false", s_dump_rest_angle,
            s_dump_target_angle, s_is_busy ? "true" : "false",
-           s_last_trash_name);
+           s_last_trash_name,
+           s_ultrasonic_distance_cm,
+           s_ultrasonic_detected ? "true" : "false",
+           ULTRASONIC_DETECT_THRESHOLD_CM);
+  return httpd_resp_send(req, resp, strlen(resp));
+}
+
+// GET /distance: Lấy thông số khoảng cách cảm biến siêu âm riêng biệt (< 1ms)
+static esp_err_t http_distance_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  httpd_resp_set_hdr(req, "Connection", "close");
+  char resp[160];
+  snprintf(resp, sizeof(resp),
+           "{\"distance_cm\":%.1f,\"detected\":%s,\"threshold_cm\":%.1f,\"is_busy\":%s}",
+           s_ultrasonic_distance_cm,
+           s_ultrasonic_detected ? "true" : "false",
+           ULTRASONIC_DETECT_THRESHOLD_CM,
+           s_is_busy ? "true" : "false");
   return httpd_resp_send(req, resp, strlen(resp));
 }
 
@@ -1098,6 +1227,12 @@ static httpd_handle_t start_webserver(void) {
                               .user_ctx = NULL};
     httpd_register_uri_handler(server, &rotate_uri);
 
+    httpd_uri_t distance_uri = {.uri = "/distance",
+                                .method = HTTP_GET,
+                                .handler = http_distance_handler,
+                                .user_ctx = NULL};
+    httpd_register_uri_handler(server, &distance_uri);
+
     ESP_LOGI(TAG, "HTTP Server da khoi dong tren port 80!");
   }
   return server;
@@ -1106,6 +1241,31 @@ static httpd_handle_t start_webserver(void) {
 // ====================================================================
 // 6. XỬ LÝ SỰ KIỆN WIFI
 // ====================================================================
+// Tự động phát gói tin UDP Broadcast để Web Server tự gán IP mà không cần nhập tay
+static void broadcast_device_ip(const char *dev_name, const esp_ip4_addr_t *ip) {
+  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+  if (sock < 0) return;
+
+  int broadcast = 1;
+  setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast));
+
+  struct sockaddr_in dest;
+  memset(&dest, 0, sizeof(dest));
+  dest.sin_family = AF_INET;
+  dest.sin_port = htons(5005);
+  dest.sin_addr.s_addr = inet_addr("255.255.255.255");
+
+  char msg[128];
+  snprintf(msg, sizeof(msg), "TRASHNET:%s:http://" IPSTR, dev_name, IP2STR(ip));
+
+  for (int i = 0; i < 3; i++) {
+    sendto(sock, msg, strlen(msg), 0, (struct sockaddr *)&dest, sizeof(dest));
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+  close(sock);
+  ESP_LOGI(TAG, "[AUTO-IP] Da phat UDP Broadcast thong bao IP: %s", msg);
+}
+
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -1136,6 +1296,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     s_retry_num = 0;
     s_is_wifi_connected = true;
     xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    broadcast_device_ip("ACTUATOR", &event->ip_info.ip);
 
     // Hiển thị IP lên LCD lúc khởi động thành công
     char ip_str[32];
@@ -1212,6 +1373,9 @@ void app_main(void) {
   // 3. Khởi tạo hàng đợi lệnh và Task xử lý ngầm
   s_bin_cmd_queue = xQueueCreate(10, sizeof(bin_command_t));
   xTaskCreate(actuator_worker_task, "actuator_worker", 4096, NULL, 5, NULL);
+#if ENABLE_ULTRASONIC_SENSOR
+  xTaskCreate(ultrasonic_task, "ultrasonic_task", 3072, NULL, 4, NULL);
+#endif
 
   // 4. Kết nối WiFi
   wifi_init_sta();
@@ -1581,6 +1745,16 @@ void app_main(void) {
     } else if (c == 's' || c == 'S') {
       ESP_LOGW(TAG, "[SERIAL] DUNG KHAN CAP SERVO 360");
       servo_360_stop();
+#if ENABLE_ULTRASONIC_SENSOR
+    } else if (c == 'p' || c == 'P') {
+      float d = ultrasonic_measure_raw_cm();
+      if (d > 0.0f) {
+        ESP_LOGI(TAG, "[TEST SIEU AM] Khoang cach tuc thi: %.1f cm -> %s",
+                 d, (d < ULTRASONIC_DETECT_THRESHOLD_CM) ? "CO RAC (<6cm)!" : "Cua trong (>6cm)");
+      } else {
+        ESP_LOGW(TAG, "[TEST SIEU AM] Khong doc duoc (Timeout). Kiem tra chan VCC (5V), GND, TRIG (G5), ECHO (G27)");
+      }
+#endif
     }
 
     vTaskDelay(pdMS_TO_TICKS(50));

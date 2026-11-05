@@ -6,8 +6,8 @@
 //               (ESP32-CAM & ESP32 THƯỜNG / ACTUATOR)
 // ==============================================================================
 
-#define WIFI_SSID                 "ITF Da Nang" // "Long Nhat" // "TRAM 247 STUDY CAFE & WORKSPACE"
-#define WIFI_PASS                 "itfdanang" // "hoichirua" // "tramloveyou"
+#define WIFI_SSID                 "TRAM 247 STUDY CAFE & WORKSPACE" // "ITF Da Nang"
+#define WIFI_PASS                 "tramloveyou" // "itfdanang"
 
 #ifdef CONFIG_ESP_WIFI_SSID
 #undef CONFIG_ESP_WIFI_SSID

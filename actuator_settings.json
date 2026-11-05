@@ -1,8 +1,10 @@
 {
   "enabled": true,
-  "actuator_ip": "http://172.16.0.116",
+  "actuator_ip": "http://172.16.2.237",
   "esp32_cam_ip": "http://172.16.0.100",
   "auto_scan_interval_sec": 3,
+  "ultrasonic_threshold_cm": 6.5,
+  "ultrasonic_auto_capture": false,
   "rotate_time_90_ms": 950,
   "rotate_time_90_rev_ms": 1010,
   "rotate_time_180_fwd_ms": 1850,

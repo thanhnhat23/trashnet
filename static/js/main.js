@@ -1,4 +1,27 @@
-// TrashNet - Minimalist Monochrome Controller (IoT & Camera Vision Hub)
+var isActuatorCurrentlyBusy = false;
+var isAiInferenceBusy = false;
+var ultrasonicTriggerLocked = false;
+var ultrasonicPollTimer = null;
+var actuatorPollInterval = null;
+var currentUltrasonicDistance = 999.0;
+var ultrasonicThresholdCm = 6.5;
+var isUltrasonicAutoEnabled = false;
+var ultrasonicClearCount = 0;
+var ultrasonicDetectCount = 0;
+var busyFlagTimestamp = 0;
+
+window.isActuatorCurrentlyBusy = false;
+window.isAiInferenceBusy = false;
+window.ultrasonicTriggerLocked = false;
+window.ultrasonicPollTimer = null;
+window.actuatorPollInterval = null;
+window.currentUltrasonicDistance = -1.0;
+window.ultrasonicThresholdCm = 6.5;
+window.isUltrasonicAutoEnabled = false;
+window.ultrasonicClearCount = 0;
+window.ultrasonicDetectCount = 0;
+window.busyFlagTimestamp = 0;
+
 let currentCameraSource = 'webcam';
 let currentModelType = 'fusion';
 try {
@@ -315,6 +338,7 @@ async function captureWebcam() {
         if (engineStatus) engineStatus.textContent = 'LỖI PHÂN TÍCH';
     } finally {
         setLoading(false);
+        isAiInferenceBusy = false;
     }
 }
 
@@ -335,7 +359,15 @@ function getCleanActuatorUrl() {
     const el = document.getElementById('actuatorIpInputMain') || document.getElementById('actuatorIpInput');
     let saved = '';
     try { saved = localStorage.getItem('trashnet_actuator_ip') || ''; } catch (e) {}
-    let url = (el ? el.value : '').trim() || saved || 'http://172.16.0.116';
+    if (saved === 'http://172.16.0.116' || saved === '172.16.0.116') {
+        saved = 'http://172.16.2.237';
+        try { localStorage.setItem('trashnet_actuator_ip', saved); } catch (e) {}
+    }
+    let url = (el ? el.value : '').trim() || saved || 'http://172.16.2.237';
+    if (url === 'http://172.16.0.116' || url === '172.16.0.116') {
+        url = 'http://172.16.2.237';
+        if (el) el.value = url;
+    }
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = 'http://' + url;
     }
@@ -401,6 +433,7 @@ async function connectActuatorFromMain() {
     const ip = getCleanActuatorUrl();
     const statusText = document.getElementById('actuatorStatusTextMain');
     const input = document.getElementById('actuatorIpInputMain');
+    const quickBadge = document.getElementById('quickActuatorStatusBadge');
     if (input) input.value = ip;
 
     try {
@@ -422,19 +455,33 @@ async function connectActuatorFromMain() {
         const statusData = await statusRes.json();
 
         if (statusData.online) {
+            const displayIp = ip.replace(/^https?:\/\//, '');
             if (statusText) {
-                statusText.innerHTML = `<i class="fa-solid fa-circle-check text-success me-1"></i> Thùng: Online (${data.ip})`;
+                statusText.innerHTML = `<i class="fa-solid fa-circle-check text-success me-1"></i> Thùng: ${displayIp} (Online)`;
             }
             const badge = document.getElementById('actuatorStatusBadge');
             if (badge) badge.innerHTML = '<span class="status-dot online"></span> TRỰC TUYẾN';
+            if (quickBadge) {
+                quickBadge.textContent = 'ONLINE';
+                quickBadge.className = 'badge bg-success font-mono';
+            }
         } else {
+            const displayIp = ip.replace(/^https?:\/\//, '');
             if (statusText) {
-                statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-warning me-1"></i> Thùng: Đã lưu (${data.ip})`;
+                statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-warning me-1"></i> Thùng: Đã lưu (${displayIp})`;
+            }
+            if (quickBadge) {
+                quickBadge.textContent = 'SẴN SÀNG';
+                quickBadge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
             }
         }
     } catch (err) {
         if (statusText) {
             statusText.innerHTML = `<i class="fa-solid fa-circle-xmark text-danger me-1"></i> Lỗi: ${err.message}`;
+        }
+        if (quickBadge) {
+            quickBadge.textContent = 'LỖI NỐI';
+            quickBadge.className = 'badge bg-danger text-white font-mono';
         }
     }
 }
@@ -458,9 +505,206 @@ function disconnectEsp32() {
     esp32Connected = false;
 }
 
-// Biến trạng thái đồng bộ khóa bận giữa Camera và Cơ cấu chấp hành
-let isActuatorCurrentlyBusy = false;
-let actuatorPollInterval = null;
+// ============================================================
+// HỆ THỐNG ĐỒNG BỘ KHÓA BẬN VÀ CẢM BIẾN SIÊU ÂM (ULTRASONIC)
+// ============================================================
+
+function toggleUltrasonicAuto(enabled) {
+    isUltrasonicAutoEnabled = Boolean(enabled);
+    const check1 = document.getElementById('ultrasonicAutoCheck');
+    const check2 = document.getElementById('cfg_ultrasonic_auto_enabled');
+    if (check1) check1.checked = isUltrasonicAutoEnabled;
+    if (check2) check2.checked = isUltrasonicAutoEnabled;
+    console.log('[SIÊU ÂM] Chế độ tự động chụp khi < 6cm:', isUltrasonicAutoEnabled ? 'BẬT' : 'TẮT');
+}
+
+function updateUltrasonicUi(dist, isBusy) {
+    const valEl = document.getElementById('ultrasonicDistanceVal');
+    const badge = document.getElementById('ultrasonicLiveBadge');
+    const cfgStatus = document.getElementById('cfg_ultrasonic_live_status');
+    const hint = document.getElementById('ultrasonicStatusHint');
+
+    if (!isUltrasonicAutoEnabled || dist < 0) {
+        if (valEl) valEl.textContent = 'TẮT';
+        if (cfgStatus) cfgStatus.textContent = 'Cảm biến siêu âm: Tạm tắt';
+        if (badge) {
+            badge.className = 'badge border border-subtle text-secondary font-mono';
+            badge.innerHTML = `<i class="fa-solid fa-power-off me-1"></i> ĐÃ TẮT`;
+        }
+        if (hint) {
+            hint.innerHTML = `<span class="text-secondary"><i class="fa-solid fa-circle-info me-1"></i> Siêu âm đang tạm tắt. Dùng nút <b>Chụp &amp; Nhận diện</b> hoặc Quét định kỳ.</span>`;
+        }
+        return;
+    }
+
+    let distStr = (dist > 0 && dist < 350) ? `${dist.toFixed(1)} cm` : '-- cm';
+    if (valEl) valEl.textContent = distStr;
+    if (cfgStatus) cfgStatus.textContent = `Khoảng cách: ${distStr}`;
+
+    if (badge) {
+        if (dist > 0 && dist < ultrasonicThresholdCm) {
+            badge.className = 'badge bg-success text-white font-mono';
+            badge.innerHTML = `<i class="fa-solid fa-bolt me-1"></i> Có rác: ${distStr}`;
+        } else if (isBusy || isActuatorCurrentlyBusy) {
+            badge.className = 'badge bg-warning text-dark font-mono';
+            badge.innerHTML = `<i class="fa-solid fa-gear fa-spin me-1"></i> Đang xử lý: ${distStr}`;
+        } else {
+            badge.className = 'badge border border-subtle text-secondary font-mono';
+            badge.innerHTML = `<span class="status-dot online"></span> ${distStr}`;
+        }
+    }
+}
+
+function checkUltrasonicTrigger() {
+    if (!isUltrasonicAutoEnabled) return; // Siêu âm đang tạm tắt -> Không làm gì cả
+    const hasObject = (currentUltrasonicDistance > 0 && currentUltrasonicDistance < ultrasonicThresholdCm);
+
+    if (!hasObject) {
+        // Cảm biến đang thông thoáng (>= 6cm)
+        ultrasonicClearCount++;
+        ultrasonicDetectCount = 0; // Reset stable detection counter
+        // Sau ít nhất 2 lần đo liên tiếp thoáng VÀ không có tác vụ nào đang chạy
+        if (ultrasonicClearCount >= 2 && !isActuatorCurrentlyBusy && !isAiInferenceBusy) {
+            if (ultrasonicTriggerLocked) {
+                console.log('>>> [SIÊU ÂM] Cửa nhận rác đã thông thoáng! Mở khóa sẵn sàng cho lần vứt rác tiếp theo.');
+                ultrasonicTriggerLocked = false;
+            }
+            const hint = document.getElementById('ultrasonicStatusHint');
+            if (hint) {
+                hint.innerHTML = `<span class="text-secondary"><i class="fa-solid fa-check text-success me-1"></i> Sẵn sàng: Ngưỡng tự chụp &lt; ${ultrasonicThresholdCm.toFixed(1)} cm</span>`;
+            }
+        }
+        return;
+    }
+
+    // NẾU CÓ RÁC TRONG NGƯỠNG (< 6cm):
+    ultrasonicClearCount = 0;
+    ultrasonicDetectCount++; // Tăng stable detection counter
+
+    if (!isUltrasonicAutoEnabled) {
+        return; // Người dùng tắt tự động chụp qua siêu âm
+    }
+
+    // WEB-SIDE STABLE DETECTION: cần 3+ lần poll liên tiếp dưới ngưỡng
+    if (ultrasonicDetectCount < 3) {
+        const hint = document.getElementById('ultrasonicStatusHint');
+        if (hint) {
+            hint.innerHTML = `<span class="text-info"><i class="fa-solid fa-magnifying-glass me-1"></i> Đang xác nhận vật thể... (${ultrasonicDetectCount}/3)</span>`;
+        }
+        return;
+    }
+
+    // ĐIỀU KIỆN CHỐNG NGHẼN (CHỈ LÀM TÁC VỤ TIẾP THEO KHI ĐÃ HOÀN TOÀN XONG HẾT TÁC VỤ CŨ):
+    // 1. Nếu cơ cấu chấp hành (mâm xoay, servo hất rác) đang chạy:
+    if (isActuatorCurrentlyBusy) {
+        const hint = document.getElementById('ultrasonicStatusHint');
+        if (hint) {
+            hint.innerHTML = `<span class="text-warning"><i class="fa-solid fa-spinner fa-spin me-1"></i> Thùng đang xử lý... KHÓA CHỤP chống nghẽn!</span>`;
+        }
+        return;
+    }
+
+    // 2. Nếu Camera / AI đang lấy ảnh hoặc đang suy luận bức ảnh trước:
+    if (isAiInferenceBusy) {
+        const hint = document.getElementById('ultrasonicStatusHint');
+        if (hint) {
+            hint.innerHTML = `<span class="text-info"><i class="fa-solid fa-brain me-1"></i> AI đang phân loại... Vui lòng đợi!</span>`;
+        }
+        return;
+    }
+
+    // 3. Nếu phiên kích hoạt hiện tại đã chụp rồi nhưng rác vẫn còn nằm trước cảm biến (chưa rơi xuống):
+    if (ultrasonicTriggerLocked) {
+        const hint = document.getElementById('ultrasonicStatusHint');
+        if (hint) {
+            hint.innerHTML = `<span class="text-warning"><i class="fa-solid fa-hand-holding me-1"></i> Đã chụp rác (< ${ultrasonicThresholdCm.toFixed(1)}cm). Đang chờ đưa vào ngăn...</span>`;
+        }
+        return;
+    }
+
+    // KHI TẤT CẢ TÁC VỤ ĐỀU ĐÃ XONG VÀ RÁC MỚI VỪA ĐẶT VÀO (< 6cm, xác nhận 3/3):
+    console.log(`>>> [SIÊU ÂM KÍCH HOẠT] Phát hiện rác: ${currentUltrasonicDistance.toFixed(1)} cm (< ${ultrasonicThresholdCm} cm, stable=${ultrasonicDetectCount}). Điều khiển ESP32-CAM chụp ảnh!`);
+
+    // KHÓA NGAY LẬP TỨC để các vòng lặp polling tiếp theo không kích hoạt lặp
+    ultrasonicTriggerLocked = true;
+    window.ultrasonicTriggerLocked = true;
+    ultrasonicDetectCount = 0; // Reset counter sau khi trigger
+
+    const hint = document.getElementById('ultrasonicStatusHint');
+    if (hint) {
+        hint.innerHTML = `<span class="text-white fw-bold"><i class="fa-solid fa-camera-retro me-1"></i> Phát hiện rác! Đang điều khiển ESP32-CAM chụp...</span>`;
+    }
+    if (engineStatus) engineStatus.textContent = 'SIÊU ÂM KÍCH HOẠT: ĐANG CHỤP ESP32-CAM...';
+
+    // Gọi hàm chụp ảnh từ ESP32-CAM (captureEsp32Cam tự quản lý isAiInferenceBusy)
+    captureEsp32Cam();
+}
+
+function startUltrasonicMonitoring() {
+    if (window.ultrasonicPollTimer) {
+        clearInterval(window.ultrasonicPollTimer);
+        window.ultrasonicPollTimer = null;
+    }
+    ultrasonicPollTimer = null;
+
+    // Giám sát trạng thái thiết bị định kỳ mỗi 2500ms (giảm 70% tải mạng LAN, tránh lag)
+    window.ultrasonicPollTimer = setInterval(async () => {
+        try {
+            // Nếu đang trong chu trình phân loại và xoay mâm, việc polling đã do pollActuatorCompletion đảm nhận
+            if (isActuatorCurrentlyBusy) return;
+
+            // WATCHDOG: Nếu cờ busy bị kẹt quá 25 giây, tự force reset
+            const now = Date.now();
+            if (isActuatorCurrentlyBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 25000)) {
+                console.warn('>>> [WATCHDOG] isActuatorCurrentlyBusy bị kẹt > 25s. Force reset!');
+                isActuatorCurrentlyBusy = false;
+                window.isActuatorCurrentlyBusy = false;
+                busyFlagTimestamp = 0;
+                if (window.actuatorPollInterval) {
+                    clearInterval(window.actuatorPollInterval);
+                    window.actuatorPollInterval = null;
+                }
+            }
+            if (isAiInferenceBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 20000)) {
+                console.warn('>>> [WATCHDOG] isAiInferenceBusy bị kẹt > 20s. Force reset!');
+                isAiInferenceBusy = false;
+                window.isAiInferenceBusy = false;
+                ultrasonicTriggerLocked = false;
+                window.ultrasonicTriggerLocked = false;
+            }
+
+            const res = await fetch('/api/actuator/status');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.online) return;
+
+            // Đồng bộ cờ bận cơ khí từ ESP32
+            if (data.is_busy !== undefined) {
+                const wasBusy = isActuatorCurrentlyBusy;
+                isActuatorCurrentlyBusy = Boolean(data.is_busy);
+                window.isActuatorCurrentlyBusy = isActuatorCurrentlyBusy;
+                if (isActuatorCurrentlyBusy && !wasBusy) {
+                    busyFlagTimestamp = Date.now();
+                } else if (!isActuatorCurrentlyBusy) {
+                    busyFlagTimestamp = 0;
+                }
+            }
+
+            // Đồng bộ khoảng cách từ cảm biến siêu âm (nếu có bật)
+            if (data.distance_cm !== undefined) {
+                currentUltrasonicDistance = parseFloat(data.distance_cm);
+                window.currentUltrasonicDistance = currentUltrasonicDistance;
+                updateUltrasonicUi(currentUltrasonicDistance, data.is_busy);
+            }
+
+            if (isUltrasonicAutoEnabled) {
+                checkUltrasonicTrigger();
+            }
+        } catch (e) {
+            // Socket timeout hoặc ngắt kết nối tạm thời
+        }
+    }, 2500);
+}
 
 function toggleEsp32AutoScan(enabled) {
     if (esp32AutoScanTimer) {
@@ -469,10 +713,10 @@ function toggleEsp32AutoScan(enabled) {
         esp32AutoScanTimer = null;
     }
     if (enabled) {
-        if (!isActuatorCurrentlyBusy) {
+        if (!isActuatorCurrentlyBusy && !isAiInferenceBusy) {
             captureEsp32Cam();
         } else {
-            if (engineStatus) engineStatus.textContent = 'AUTO-SCAN: ĐỢI THÙNG XỬ LÝ XONG...';
+            if (engineStatus) engineStatus.textContent = 'QUÉT ĐỊNH KỲ: ĐỢI THÙNG XỬ LÝ XONG...';
         }
     }
 }
@@ -480,6 +724,9 @@ function toggleEsp32AutoScan(enabled) {
 // Giám sát khi nào ESP32 Thường hoàn thành xoay và mở/đóng nắp xong
 function pollActuatorCompletion() {
     isActuatorCurrentlyBusy = true;
+    window.isActuatorCurrentlyBusy = true;
+    busyFlagTimestamp = Date.now();
+    window.busyFlagTimestamp = busyFlagTimestamp;
     const btn = document.getElementById('btnSnapEsp32');
     if (btn) {
         btn.disabled = true;
@@ -489,9 +736,12 @@ function pollActuatorCompletion() {
     let pollCount = 0;
     const maxPolls = 30; // 30 * 500ms = 15s max guard
 
-    if (actuatorPollInterval) clearInterval(actuatorPollInterval);
+    if (window.actuatorPollInterval) {
+        clearInterval(window.actuatorPollInterval);
+        window.actuatorPollInterval = null;
+    }
 
-    actuatorPollInterval = setInterval(async () => {
+    window.actuatorPollInterval = setInterval(async () => {
         pollCount++;
         try {
             const res = await fetch('/api/actuator/status');
@@ -499,9 +749,12 @@ function pollActuatorCompletion() {
 
             // Nếu mạch đã xử lý xong (is_busy === false sau ít nhất 2 giây bắt đầu)
             if (pollCount >= 4 && (!data.online || !data.is_busy || pollCount >= maxPolls)) {
-                clearInterval(actuatorPollInterval);
-                actuatorPollInterval = null;
+                if (window.actuatorPollInterval) clearInterval(window.actuatorPollInterval);
+                window.actuatorPollInterval = null;
                 isActuatorCurrentlyBusy = false;
+                window.isActuatorCurrentlyBusy = false;
+                busyFlagTimestamp = 0;
+                window.busyFlagTimestamp = 0;
 
                 if (btn) {
                     btn.disabled = false;
@@ -515,27 +768,42 @@ function pollActuatorCompletion() {
                 if (lcd1) lcd1.textContent = 'THUNG RAC 4 NGAN';
                 if (lcd2) lcd2.textContent = 'SAN SANG NHAN RAC';
 
-                // NẾU ĐANG BẬT TỰ ĐỘNG QUÉT (AUTO-SCAN):
-                // Sử dụng thời gian chờ đã cấu hình trong settings
+                // Kiểm tra xem rác đã trượt xuống chưa
+                if (currentUltrasonicDistance >= ultrasonicThresholdCm) {
+                    ultrasonicTriggerLocked = false;
+                    window.ultrasonicTriggerLocked = false;
+                } else {
+                    const hint = document.getElementById('ultrasonicStatusHint');
+                    if (hint) {
+                        hint.innerHTML = `<span class="text-warning"><i class="fa-solid fa-triangle-exclamation me-1"></i> Rác chưa rơi hết hoặc bị kẹt trước cảm biến!</span>`;
+                    }
+                }
+
+                // NẾU ĐANG BẬT TỰ ĐỘNG QUÉT ĐỊNH KỲ:
                 if (esp32AutoScanCheck && esp32AutoScanCheck.checked) {
                     const delaySec = (typeof currentActuatorSettings !== 'undefined' && currentActuatorSettings.auto_scan_interval_sec) ? currentActuatorSettings.auto_scan_interval_sec : 3;
                     if (engineStatus) engineStatus.textContent = `SẴN SÀNG: ĐẶT RÁC TIẾP THEO (${delaySec}s)...`;
                     esp32AutoScanTimer = setTimeout(() => {
-                        if (esp32AutoScanCheck && esp32AutoScanCheck.checked && !isActuatorCurrentlyBusy) {
+                        if (esp32AutoScanCheck && esp32AutoScanCheck.checked && !isActuatorCurrentlyBusy && !isAiInferenceBusy) {
                             captureEsp32Cam();
                         }
                     }, delaySec * 1000);
                 }
             } else if (data.is_busy) {
+                isActuatorCurrentlyBusy = true;
+                window.isActuatorCurrentlyBusy = true;
                 if (btn) {
                     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Đang thả rác vào ngăn ${data.current_bin || ''}...`;
                 }
             }
         } catch (e) {
             if (pollCount >= 10) {
-                clearInterval(actuatorPollInterval);
-                actuatorPollInterval = null;
+                if (window.actuatorPollInterval) clearInterval(window.actuatorPollInterval);
+                window.actuatorPollInterval = null;
                 isActuatorCurrentlyBusy = false;
+                window.isActuatorCurrentlyBusy = false;
+                busyFlagTimestamp = 0;
+                window.busyFlagTimestamp = 0;
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = `<i class="fa-solid fa-camera-retro me-1"></i> Chụp & Nhận diện`;
@@ -546,13 +814,17 @@ function pollActuatorCompletion() {
 }
 
 async function captureEsp32Cam() {
-    if (isActuatorCurrentlyBusy) {
-        console.log('Thùng rác đang hoạt động, tạm dừng chụp để tránh xung đột!');
+    if (isActuatorCurrentlyBusy || isAiInferenceBusy) {
+        console.log('Thùng rác hoặc AI đang bận xử lý, tạm dừng chụp để tránh xung đột!');
         return;
     }
+    isAiInferenceBusy = true;
+    window.isAiInferenceBusy = true;
 
     const baseUrl = getCleanEsp32Url();
     setLoading(true, 'ĐANG PHÂN TÍCH KHUNG HÌNH ESP32...');
+
+    let errorOccurred = false;
 
     try {
         let base64Img = null;
@@ -598,17 +870,42 @@ async function captureEsp32Cam() {
 
         renderResults(data, data.captured_image || '');
         if (esp32StatusText) {
-            esp32StatusText.innerHTML = `<i class="fa-solid fa-circle-check text-success me-1"></i> Đã nhận diện thành công`;
+            esp32StatusText.innerHTML = `<i class="fa-solid fa-circle-check text-success me-1"></i> Đã nhận diện: ${data.name_vi || ''}`;
         }
-        if (engineStatus) engineStatus.textContent = 'ĐANG ĐIỀU KHIỂN THÙNG RÁC...';
 
-        // Bắt đầu khóa đồng bộ và theo dõi khi nào thùng rác xử lý xong hoàn toàn
-        pollActuatorCompletion();
+        // Đồng bộ hóa luồng điều khiển Actuator:
+        if (data.actuator_status && data.actuator_status.dispatched) {
+            if (engineStatus) engineStatus.textContent = 'ĐANG ĐIỀU KHIỂN THÙNG RÁC...';
+            if (data.actuator_status.bin_info) {
+                updateActuatorHardwareUi(data.actuator_status.bin_info, data.name_vi);
+            }
+            pollActuatorCompletion();
+        } else {
+            console.warn('[PIPELINE] ESP32 Actuator chưa phản hồi hoặc chưa kết nối');
+            if (engineStatus) engineStatus.textContent = 'HOÀN TẤT (CHƯA NỐI ACTUATOR)';
+            isActuatorCurrentlyBusy = false;
+            window.isActuatorCurrentlyBusy = false;
+        }
     } catch (err) {
-        alert('Lỗi ESP32-CAM: ' + err.message);
+        errorOccurred = true;
+        console.error('Lỗi ESP32-CAM:', err);
+        const hint = document.getElementById('ultrasonicStatusHint');
+        if (hint) {
+            hint.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i> Lỗi: ${err.message}</span>`;
+        }
         if (engineStatus) engineStatus.textContent = 'LỖI NHẬN DIỆN ESP32';
     } finally {
-        setLoading(false);
+        isAiInferenceBusy = false;
+        window.isAiInferenceBusy = false;
+        if (!isActuatorCurrentlyBusy) {
+            setLoading(false);
+        }
+        if (errorOccurred) {
+            setTimeout(() => {
+                ultrasonicTriggerLocked = false;
+                window.ultrasonicTriggerLocked = false;
+            }, 2500);
+        }
     }
 }
 
@@ -933,29 +1230,84 @@ function updateActuatorHardwareUi(actuator, viName = '') {
 async function triggerManualBin(binNum, binTitle) {
     if (isActuatorCurrentlyBusy) {
         console.warn('ESP32 Actuator đang bận chu trình trước, vui lòng đợi xong');
+        const badge = document.getElementById('quickActuatorStatusBadge');
+        if (badge) {
+            const oldText = badge.textContent;
+            badge.textContent = 'ĐANG BẬN...';
+            badge.className = 'badge bg-warning text-dark font-mono';
+            setTimeout(() => {
+                badge.textContent = oldText;
+                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
+            }, 800);
+        }
         return;
     }
+
+    const defaultNames = { 1: 'Rác cháy được', 2: 'Thủy tinh', 3: 'Kim loại', 4: 'Nhựa PET' };
+    const name = binTitle || defaultNames[binNum] || `Ngăn ${binNum}`;
+
+    const modeRotateOnly = document.getElementById('modeRotateOnly');
+    const isRotateOnly = modeRotateOnly && modeRotateOnly.checked;
+    const action = isRotateOnly ? 'rotate' : 'bin';
+    const actionLabel = isRotateOnly ? `QUAY NGĂN ${binNum}...` : `CHU TRÌNH NGĂN ${binNum}...`;
+
     isActuatorCurrentlyBusy = true;
+    window.isActuatorCurrentlyBusy = true;
+
+    // Cập nhật giao diện mô phỏng phần cứng và quick button
     updateActuatorHardwareUi({
         bin: binNum,
-        lcd_title: binTitle || `Rac NGAN ${binNum}`,
+        lcd_title: name,
         angle: (binNum - 1) * 90
     });
 
+    const btn = document.getElementById(`btnQuickBin${binNum}`);
+    const badge = document.getElementById('quickActuatorStatusBadge');
+    if (btn) btn.classList.add('border-primary', 'bg-zinc-800');
+    if (badge) {
+        badge.textContent = actionLabel;
+        badge.className = 'badge bg-warning text-dark font-mono';
+    }
+
     try {
-        await fetch('/api/actuator/control', {
+        const res = await fetch('/api/actuator/control', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'bin',
+                action: action,
                 bin: binNum,
-                name: binTitle
+                name: name
             })
         });
+        const data = await res.json();
+        if (data.error) {
+            if (badge) {
+                badge.textContent = `LỖI: ${data.error}`;
+                badge.className = 'badge bg-danger text-white font-mono';
+            }
+        } else {
+            if (badge) {
+                badge.textContent = isRotateOnly ? `ĐÃ ĐẾN NGĂN ${binNum}` : `XONG NGĂN ${binNum}`;
+                badge.className = 'badge bg-success text-white font-mono';
+            }
+        }
         pollActuatorCompletion();
     } catch (e) {
         console.warn('Lỗi gửi lệnh Actuator:', e);
+        if (badge) {
+            badge.textContent = 'LỖI KẾT NỐI';
+            badge.className = 'badge bg-danger text-white font-mono';
+        }
         isActuatorCurrentlyBusy = false;
+        window.isActuatorCurrentlyBusy = false;
+    } finally {
+        setTimeout(() => {
+            if (btn) btn.classList.remove('border-primary', 'bg-zinc-800');
+            if (badge) {
+                badge.textContent = 'SẴN SÀNG';
+                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
+            }
+        }, 1800);
     }
 }
 
@@ -1172,7 +1524,7 @@ function setLoading(isLoading, text = 'ĐANG XỬ LÝ...') {
 // ============================================================
 let currentActuatorSettings = {
     enabled: true,
-    actuator_ip: "http://172.16.0.116",
+    actuator_ip: "http://172.16.2.237",
     esp32_cam_ip: "http://172.16.0.100",
     auto_scan_interval_sec: 3,
     rotate_time_90_ms: 950,
@@ -1195,8 +1547,8 @@ async function loadActuatorSettings() {
             // Cập nhật IP sang các input ở tab khác
             const actMain = document.getElementById('actuatorIpInputMain');
             const actTab = document.getElementById('actuatorIpInput');
-            if (actMain) actMain.value = data.settings.actuator_ip || 'http://172.16.0.116';
-            if (actTab) actTab.value = data.settings.actuator_ip || 'http://172.16.0.116';
+            if (actMain) actMain.value = data.settings.actuator_ip || 'http://172.16.2.237';
+            if (actTab) actTab.value = data.settings.actuator_ip || 'http://172.16.2.237';
             if (esp32IpInput) esp32IpInput.value = data.settings.esp32_cam_ip || 'http://172.16.0.100';
         }
     } catch (e) {
@@ -1220,6 +1572,20 @@ function populateSettingsUi(s) {
     setVal('cfg_dump_wait_ms', s.dump_wait_ms);
     setVal('cfg_esp32_cam_ip', s.esp32_cam_ip);
     setVal('cfg_auto_scan_interval_sec', s.auto_scan_interval_sec);
+
+    if (s.ultrasonic_threshold_cm !== undefined) {
+        ultrasonicThresholdCm = parseFloat(s.ultrasonic_threshold_cm) || 6.0;
+        setVal('cfg_ultrasonic_threshold_cm', ultrasonicThresholdCm.toFixed(1));
+        const hint = document.getElementById('ultrasonicStatusHint');
+        if (hint) hint.innerHTML = `<span class="text-secondary"><i class="fa-solid fa-check text-success me-1"></i> Sẵn sàng: Ngưỡng tự chụp &lt; ${ultrasonicThresholdCm.toFixed(1)} cm</span>`;
+    }
+    if (s.ultrasonic_auto_capture !== undefined) {
+        isUltrasonicAutoEnabled = Boolean(s.ultrasonic_auto_capture);
+        const check1 = document.getElementById('ultrasonicAutoCheck');
+        const check2 = document.getElementById('cfg_ultrasonic_auto_enabled');
+        if (check1) check1.checked = isUltrasonicAutoEnabled;
+        if (check2) check2.checked = isUltrasonicAutoEnabled;
+    }
 
     const invLabel = document.getElementById('cfg_dump_inverted_label');
     if (invLabel) {
@@ -1249,6 +1615,51 @@ function stepCamInterval(delta) {
     if (val > 30) val = 30;
     input.value = val;
     currentActuatorSettings['auto_scan_interval_sec'] = val;
+}
+
+function stepUltrasonicThreshold(delta) {
+    const input = document.getElementById('cfg_ultrasonic_threshold_cm');
+    if (!input) return;
+    let val = parseFloat(input.value) || 6.0;
+    val += delta;
+    if (val < 2.0) val = 2.0;
+    if (val > 50.0) val = 50.0;
+    val = Math.round(val * 10) / 10;
+    input.value = val.toFixed(1);
+    ultrasonicThresholdCm = val;
+    if (currentActuatorSettings) {
+        currentActuatorSettings['ultrasonic_threshold_cm'] = val;
+    }
+    const hint = document.getElementById('ultrasonicStatusHint');
+    if (hint) {
+        hint.innerHTML = `<span class="text-secondary"><i class="fa-solid fa-check text-success me-1"></i> Sẵn sàng: Ngưỡng tự chụp &lt; ${val.toFixed(1)} cm</span>`;
+    }
+}
+
+async function saveUltrasonicSettingsFromUi() {
+    const input = document.getElementById('cfg_ultrasonic_threshold_cm');
+    const check = document.getElementById('cfg_ultrasonic_auto_enabled');
+    if (input) ultrasonicThresholdCm = parseFloat(input.value) || 6.0;
+    if (check) isUltrasonicAutoEnabled = check.checked;
+
+    try {
+        const res = await fetch('/api/actuator/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ultrasonic_threshold_cm: ultrasonicThresholdCm,
+                ultrasonic_auto_capture: isUltrasonicAutoEnabled
+            })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            alert(`Đã lưu cấu hình Cảm biến Siêu âm: Ngưỡng ${ultrasonicThresholdCm}cm, Tự động: ${isUltrasonicAutoEnabled ? 'BẬT' : 'TẮT'}`);
+        } else {
+            alert('Không thể lưu cài đặt siêu âm: ' + (data.message || 'Lỗi không xác định'));
+        }
+    } catch (e) {
+        alert('Lỗi lưu cài đặt siêu âm: ' + e.message);
+    }
 }
 
 async function toggleServoDirectionFromUi() {
@@ -1343,120 +1754,6 @@ async function saveCamSettingsFromUi() {
 // ============================================================
 // 12. MANUAL ACTUATOR CONTROL (Phím bấm & Phím tắt 1, 2, 3, 4, D)
 // ============================================================
-async function connectActuatorFromMain() {
-    const input = document.getElementById('actuatorIpInputMain');
-    const statusText = document.getElementById('actuatorStatusTextMain');
-    const quickBadge = document.getElementById('quickActuatorStatusBadge');
-    if (!input) return;
-
-    let ip = input.value.trim();
-    if (!ip) ip = 'http://172.16.0.116';
-    if (!ip.startsWith('http://') && !ip.startsWith('https://')) {
-        ip = 'http://' + ip;
-    }
-    input.value = ip;
-
-    if (statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang nối thùng...';
-
-    try {
-        await fetch('/api/actuator/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip: ip, enabled: true })
-        });
-
-        const sRes = await fetch('/api/actuator/status');
-        const sData = await sRes.json();
-        const displayIp = ip.replace(/^https?:\/\//, '');
-
-        if (sData.online) {
-            if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-check text-success me-1"></i> Thùng: ${displayIp} (Online)`;
-            if (quickBadge) {
-                quickBadge.textContent = 'ONLINE';
-                quickBadge.className = 'badge bg-success font-mono';
-            }
-        } else {
-            if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-info text-zinc-400 me-1"></i> Thùng: ${displayIp}`;
-            if (quickBadge) {
-                quickBadge.textContent = 'SẴN SÀNG';
-                quickBadge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
-            }
-        }
-    } catch (e) {
-        const displayIp = ip.replace(/^https?:\/\//, '');
-        if (statusText) statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-warning me-1"></i> Nối thùng: ${displayIp}`;
-    }
-}
-
-async function triggerManualBin(binNum) {
-    if (isActuatorCurrentlyBusy) {
-        const badge = document.getElementById('quickActuatorStatusBadge');
-        if (badge) {
-            const oldText = badge.textContent;
-            badge.textContent = 'ĐANG BẬN...';
-            badge.className = 'badge bg-warning text-dark font-mono';
-            setTimeout(() => {
-                badge.textContent = oldText;
-                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
-            }, 800);
-        }
-        return;
-    }
-
-    const btn = document.getElementById(`btnQuickBin${binNum}`);
-    const badge = document.getElementById('quickActuatorStatusBadge');
-    const modeRotateOnly = document.getElementById('modeRotateOnly');
-    const isRotateOnly = modeRotateOnly && modeRotateOnly.checked;
-
-    const action = isRotateOnly ? 'rotate' : 'bin';
-    const actionLabel = isRotateOnly ? `QUAY NGĂN ${binNum}...` : `CHU TRÌNH NGĂN ${binNum}...`;
-
-    isActuatorCurrentlyBusy = true;
-    if (btn) btn.classList.add('border-primary', 'bg-zinc-800');
-    if (badge) {
-        badge.textContent = actionLabel;
-        badge.className = 'badge bg-warning text-dark font-mono';
-    }
-
-    try {
-        const res = await fetch('/api/actuator/control', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: action,
-                bin: binNum,
-                name: `Ngăn ${binNum}`
-            })
-        });
-        const data = await res.json();
-        if (data.error) {
-            if (badge) {
-                badge.textContent = `LỖI: ${data.error}`;
-                badge.className = 'badge bg-danger text-white font-mono';
-            }
-        } else {
-            if (badge) {
-                badge.textContent = isRotateOnly ? `ĐÃ ĐẾN NGĂN ${binNum}` : `XONG NGĂN ${binNum}`;
-                badge.className = 'badge bg-success text-white font-mono';
-            }
-        }
-    } catch (e) {
-        if (badge) {
-            badge.textContent = 'LỖI KẾT NỐI';
-            badge.className = 'badge bg-danger text-white font-mono';
-        }
-    } finally {
-        setTimeout(() => {
-            isActuatorCurrentlyBusy = false;
-            if (btn) btn.classList.remove('border-primary', 'bg-zinc-800');
-            if (badge) {
-                badge.textContent = 'SẴN SÀNG';
-                badge.className = 'badge border border-zinc-700 text-zinc-400 font-mono';
-            }
-        }, 1800);
-    }
-}
-
 async function triggerManualDump() {
     if (isActuatorCurrentlyBusy) {
         return;
@@ -2119,6 +2416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         connectEsp32Cam();
         connectActuatorFromMain();
+        startUltrasonicMonitoring();
     }, 400);
 });
 
