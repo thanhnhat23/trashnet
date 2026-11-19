@@ -1,13 +1,8 @@
 #ifndef WIFI_CONFIG_H
 #define WIFI_CONFIG_H
 
-// ==============================================================================
-//           CẤU HÌNH WIFI DÙNG CHUNG CHO CẢ 2 BO MẠCH ESP32
-//               (ESP32-CAM & ESP32 THƯỜNG / ACTUATOR)
-// ==============================================================================
-
-#define WIFI_SSID                 "TRAM 247 STUDY CAFE & WORKSPACE" // "ITF Da Nang"
-#define WIFI_PASS                 "tramloveyou" // "itfdanang"
+#define WIFI_SSID                 "Long Nhat"
+#define WIFI_PASS                 "hoichirua"
 
 #ifdef CONFIG_ESP_WIFI_SSID
 #undef CONFIG_ESP_WIFI_SSID

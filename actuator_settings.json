@@ -1,7 +1,7 @@
 {
   "enabled": true,
-  "actuator_ip": "http://172.16.2.237",
-  "esp32_cam_ip": "http://172.16.0.100",
+  "actuator_ip": "http://192.168.1.12",
+  "esp32_cam_ip": "http://172.31.99.90",
   "auto_scan_interval_sec": 3,
   "ultrasonic_threshold_cm": 6.5,
   "ultrasonic_auto_capture": false,
@@ -13,6 +13,123 @@
   "dump_rev_time_ms": 500,
   "dump_wait_ms": 1500,
   "dump_inverted": false,
-  "dump_rest_angle": 0,
-  "dump_target_angle": 90
+  "dump_rest_angle": 4,
+  "dump_target_angle": 87,
+  "lid_inverted": true,
+  "lid_rest_angle": 10,
+  "lid_open_angle": 0,
+  "bin1_full_threshold_cm": 2.0,
+  "lid_sensor_threshold_cm": 2.0,
+  "lid_auto_trigger_enabled": true,
+  "rotation_matrix": {
+    "description": "Bảng ma trận thời gian quay giữa 4 thùng rác (Chuẩn thực tế)",
+    "table_ms": [
+      [
+        0,
+        950,
+        1850,
+        1010
+      ],
+      [
+        1010,
+        0,
+        950,
+        1850
+      ],
+      [
+        1955,
+        1010,
+        0,
+        950
+      ],
+      [
+        950,
+        1955,
+        1010,
+        0
+      ]
+    ],
+    "details": {
+      "1_to_1": {
+        "dir": 0,
+        "time_ms": 0,
+        "desc": "0 ms"
+      },
+      "1_to_2": {
+        "dir": 1,
+        "time_ms": 950,
+        "desc": "Thuận 90°: 950 ms"
+      },
+      "1_to_3": {
+        "dir": 1,
+        "time_ms": 1850,
+        "desc": "Thuận 180°: 1850 ms"
+      },
+      "1_to_4": {
+        "dir": -1,
+        "time_ms": 1010,
+        "desc": "Nghịch 90°: 1010 ms"
+      },
+      "2_to_1": {
+        "dir": -1,
+        "time_ms": 1010,
+        "desc": "Nghịch 90°: 1010 ms"
+      },
+      "2_to_2": {
+        "dir": 0,
+        "time_ms": 0,
+        "desc": "0 ms"
+      },
+      "2_to_3": {
+        "dir": 1,
+        "time_ms": 950,
+        "desc": "Thuận 90°: 950 ms"
+      },
+      "2_to_4": {
+        "dir": 1,
+        "time_ms": 1850,
+        "desc": "Thuận 180°: 1850 ms"
+      },
+      "3_to_1": {
+        "dir": -1,
+        "time_ms": 1955,
+        "desc": "Nghịch 180°: 1955 ms"
+      },
+      "3_to_2": {
+        "dir": -1,
+        "time_ms": 1010,
+        "desc": "Nghịch 90°: 1010 ms"
+      },
+      "3_to_3": {
+        "dir": 0,
+        "time_ms": 0,
+        "desc": "0 ms"
+      },
+      "3_to_4": {
+        "dir": 1,
+        "time_ms": 950,
+        "desc": "Thuận 90°: 950 ms"
+      },
+      "4_to_1": {
+        "dir": 1,
+        "time_ms": 950,
+        "desc": "Thuận 90°: 950 ms"
+      },
+      "4_to_2": {
+        "dir": -1,
+        "time_ms": 1955,
+        "desc": "Nghịch 180°: 1955 ms"
+      },
+      "4_to_3": {
+        "dir": -1,
+        "time_ms": 1010,
+        "desc": "Nghịch 90°: 1010 ms"
+      },
+      "4_to_4": {
+        "dir": 0,
+        "time_ms": 0,
+        "desc": "0 ms"
+      }
+    }
+  }
 }

@@ -308,6 +308,13 @@ function toggleWebcamAutoScan(enabled) {
 async function captureWebcam() {
     if (!webcamVideo || !webcamVideo.videoWidth) return;
 
+    const now = Date.now();
+    if (isActuatorCurrentlyBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 8000)) {
+        isActuatorCurrentlyBusy = false;
+        busyFlagTimestamp = 0;
+        setLoading(false);
+    }
+
     webcamCanvas.width = webcamVideo.videoWidth;
     webcamCanvas.height = webcamVideo.videoHeight;
     const ctx = webcamCanvas.getContext('2d');
@@ -319,6 +326,7 @@ async function captureWebcam() {
 
     const base64Img = webcamCanvas.toDataURL('image/jpeg', 0.9);
     setLoading(true, 'ĐANG PHÂN TÍCH...');
+    isAiInferenceBusy = true;
 
     try {
         const res = await fetch('/api/predict', {
@@ -327,7 +335,8 @@ async function captureWebcam() {
             body: JSON.stringify({ 
                 image_base64: base64Img,
                 model_type: currentModelType
-            })
+            }),
+            signal: AbortSignal.timeout(10000)
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Lỗi nhận diện');
@@ -650,28 +659,31 @@ function startUltrasonicMonitoring() {
     // Giám sát trạng thái thiết bị định kỳ mỗi 2500ms (giảm 70% tải mạng LAN, tránh lag)
     window.ultrasonicPollTimer = setInterval(async () => {
         try {
-            // Nếu đang trong chu trình phân loại và xoay mâm, việc polling đã do pollActuatorCompletion đảm nhận
-            if (isActuatorCurrentlyBusy) return;
-
-            // WATCHDOG: Nếu cờ busy bị kẹt quá 25 giây, tự force reset
+            // WATCHDOG: Nếu cờ busy bị kẹt quá 10 giây, tự force reset giải phóng hệ thống
             const now = Date.now();
-            if (isActuatorCurrentlyBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 25000)) {
-                console.warn('>>> [WATCHDOG] isActuatorCurrentlyBusy bị kẹt > 25s. Force reset!');
+            if (isActuatorCurrentlyBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 10000)) {
+                console.warn('>>> [WATCHDOG] isActuatorCurrentlyBusy bị kẹt > 10s. Force reset!');
                 isActuatorCurrentlyBusy = false;
                 window.isActuatorCurrentlyBusy = false;
                 busyFlagTimestamp = 0;
+                window.busyFlagTimestamp = 0;
                 if (window.actuatorPollInterval) {
                     clearInterval(window.actuatorPollInterval);
                     window.actuatorPollInterval = null;
                 }
+                setLoading(false);
             }
-            if (isAiInferenceBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 20000)) {
-                console.warn('>>> [WATCHDOG] isAiInferenceBusy bị kẹt > 20s. Force reset!');
+            if (isAiInferenceBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 10000)) {
+                console.warn('>>> [WATCHDOG] isAiInferenceBusy bị kẹt > 10s. Force reset!');
                 isAiInferenceBusy = false;
                 window.isAiInferenceBusy = false;
                 ultrasonicTriggerLocked = false;
                 window.ultrasonicTriggerLocked = false;
+                setLoading(false);
             }
+
+            // Nếu đang trong chu trình phân loại và xoay mâm, việc polling đã do pollActuatorCompletion đảm nhận
+            if (isActuatorCurrentlyBusy) return;
 
             const res = await fetch('/api/actuator/status');
             if (!res.ok) return;
@@ -695,6 +707,74 @@ function startUltrasonicMonitoring() {
                 currentUltrasonicDistance = parseFloat(data.distance_cm);
                 window.currentUltrasonicDistance = currentUltrasonicDistance;
                 updateUltrasonicUi(currentUltrasonicDistance, data.is_busy);
+            }
+
+            // Đồng bộ trạng thái Thùng 1 Đầy Rác từ Cảm biến HC-SR04 #1
+            if (data.bin1_full !== undefined || data.dist_full_cm !== undefined) {
+                const isFull = Boolean(data.bin1_full);
+                const distFull = parseFloat(data.dist_full_cm) || -1;
+                const thFull = parseFloat(data.threshold_full_cm) || 2.0;
+
+                const alertHeader = document.getElementById('bin1FullHeaderAlert');
+                const alertBadge = document.getElementById('bin1FullBadge');
+                const fillEl = document.getElementById('fillPctOrganic');
+                const barEl = document.getElementById('fillBarOrganic');
+                const liveStatus = document.getElementById('cfg_bin1_full_live_status');
+
+                let distStr = (distFull > 0 && distFull < 350) ? `${distFull.toFixed(1)} cm` : '-- cm';
+                if (fillEl) fillEl.textContent = distStr;
+
+                if (isFull || (distFull > 0 && distFull <= thFull)) {
+                    if (alertHeader) alertHeader.classList.remove('d-none');
+                    if (alertBadge) alertBadge.classList.remove('d-none');
+                    if (barEl) {
+                        barEl.style.width = '100%';
+                        barEl.className = 'clean-progress-bar bg-danger';
+                    }
+                    if (liveStatus) {
+                        liveStatus.className = 'badge bg-danger text-white font-mono';
+                        liveStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ĐẦY RÁC (${distStr} &le; ${thFull}cm)`;
+                    }
+                } else {
+                    if (alertHeader) alertHeader.classList.add('d-none');
+                    if (alertBadge) alertBadge.classList.add('d-none');
+                    if (barEl) {
+                        barEl.style.width = '25%';
+                        barEl.className = 'clean-progress-bar';
+                    }
+                    if (liveStatus) {
+                        liveStatus.className = 'badge border border-subtle text-secondary font-mono';
+                        liveStatus.innerHTML = `<span class="status-dot online"></span> ${distStr} (Bình thường)`;
+                    }
+                }
+            }
+
+            // Đồng bộ trạng thái Cảm ứng mở nắp từ Cảm biến HC-SR04 #2
+            if (data.dist_lid_cm !== undefined) {
+                const distLid = parseFloat(data.dist_lid_cm) || -1;
+                const thLid = parseFloat(data.threshold_lid_cm) || 2.0;
+                const detected = Boolean(data.lid_detected);
+                const liveLid = document.getElementById('cfg_lid_sensor_live_status');
+                let distLidStr = (distLid > 0 && distLid < 350) ? `${distLid.toFixed(1)} cm` : '-- cm';
+                if (liveLid) {
+                    if (detected || (distLid > 0 && distLid <= thLid)) {
+                        liveLid.className = 'badge bg-success text-white font-mono';
+                        liveLid.innerHTML = `<i class="fa-solid fa-bolt me-1"></i> PHÁT HIỆN RÁC (${distLidStr})`;
+                    } else {
+                        liveLid.className = 'badge border border-subtle text-secondary font-mono';
+                        liveLid.innerHTML = `<span class="status-dot online"></span> ${distLidStr} (Thoáng)`;
+                    }
+                }
+            }
+
+            // Cập nhật trạng thái Servo nắp nếu có
+            if (data.lid_open_angle !== undefined) {
+                const lidBadge = document.getElementById('trapdoorStatusBadge');
+                if (lidBadge && !isActuatorCurrentlyBusy) {
+                    const rest = data.lid_rest_angle !== undefined ? data.lid_rest_angle : (data.lid_inverted ? 10 : 0);
+                    const isClosed = Math.abs((data.lid_angle !== undefined ? data.lid_angle : rest) - rest) < 4;
+                    lidBadge.textContent = isClosed ? 'TRẠNG THÁI: ĐÓNG' : `NẮP: MỞ (${data.lid_angle}°)`;
+                }
             }
 
             if (isUltrasonicAutoEnabled) {
@@ -732,9 +812,13 @@ function pollActuatorCompletion() {
         btn.disabled = true;
         btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Đang xoay mâm & mở nắp...`;
     }
+    if (btnSnap) {
+        btnSnap.disabled = true;
+        btnSnap.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Đang điều khiển thùng...`;
+    }
 
     let pollCount = 0;
-    const maxPolls = 30; // 30 * 500ms = 15s max guard
+    const maxPolls = 16; // 16 * 500ms = 8s max guard
 
     if (window.actuatorPollInterval) {
         clearInterval(window.actuatorPollInterval);
@@ -744,7 +828,7 @@ function pollActuatorCompletion() {
     window.actuatorPollInterval = setInterval(async () => {
         pollCount++;
         try {
-            const res = await fetch('/api/actuator/status');
+            const res = await fetch('/api/actuator/status', { signal: AbortSignal.timeout(3000) });
             const data = await res.json();
 
             // Nếu mạch đã xử lý xong (is_busy === false sau ít nhất 2 giây bắt đầu)
@@ -756,9 +840,14 @@ function pollActuatorCompletion() {
                 busyFlagTimestamp = 0;
                 window.busyFlagTimestamp = 0;
 
+                setLoading(false);
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = `<i class="fa-solid fa-camera-retro me-1"></i> Chụp & Nhận diện`;
+                }
+                if (btnSnap) {
+                    btnSnap.disabled = false;
+                    btnSnap.innerHTML = `<i class="fa-solid fa-camera-retro me-1"></i> Chụp & Nhận diện`;
                 }
                 if (engineStatus) engineStatus.textContent = 'HOÀN TẤT - SẴN SÀNG NHẬN RÁC';
 
@@ -797,16 +886,21 @@ function pollActuatorCompletion() {
                 }
             }
         } catch (e) {
-            if (pollCount >= 10) {
+            if (pollCount >= 6) {
                 if (window.actuatorPollInterval) clearInterval(window.actuatorPollInterval);
                 window.actuatorPollInterval = null;
                 isActuatorCurrentlyBusy = false;
                 window.isActuatorCurrentlyBusy = false;
                 busyFlagTimestamp = 0;
                 window.busyFlagTimestamp = 0;
+                setLoading(false);
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = `<i class="fa-solid fa-camera-retro me-1"></i> Chụp & Nhận diện`;
+                }
+                if (btnSnap) {
+                    btnSnap.disabled = false;
+                    btnSnap.innerHTML = `<i class="fa-solid fa-camera-retro me-1"></i> Chụp & Nhận diện`;
                 }
             }
         }
@@ -814,12 +908,35 @@ function pollActuatorCompletion() {
 }
 
 async function captureEsp32Cam() {
+    const now = Date.now();
+    // Phục hồi tự động nếu busy flag bị kẹt quá 8s
+    if (isActuatorCurrentlyBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 8000)) {
+        console.warn('>>> [AUTO-RECOVERY] isActuatorCurrentlyBusy bị kẹt > 8s, tự động phục hồi!');
+        isActuatorCurrentlyBusy = false;
+        window.isActuatorCurrentlyBusy = false;
+        busyFlagTimestamp = 0;
+        if (window.actuatorPollInterval) {
+            clearInterval(window.actuatorPollInterval);
+            window.actuatorPollInterval = null;
+        }
+        setLoading(false);
+    }
+    if (isAiInferenceBusy && busyFlagTimestamp > 0 && (now - busyFlagTimestamp > 8000)) {
+        console.warn('>>> [AUTO-RECOVERY] isAiInferenceBusy bị kẹt > 8s, tự động phục hồi!');
+        isAiInferenceBusy = false;
+        window.isAiInferenceBusy = false;
+        setLoading(false);
+    }
+
     if (isActuatorCurrentlyBusy || isAiInferenceBusy) {
-        console.log('Thùng rác hoặc AI đang bận xử lý, tạm dừng chụp để tránh xung đột!');
+        console.log('Thùng rác hoặc AI đang bận xử lý, vui lòng đợi...');
+        if (engineStatus) engineStatus.textContent = 'ĐANG XỬ LÝ, VUI LÒNG ĐỢI...';
         return;
     }
     isAiInferenceBusy = true;
     window.isAiInferenceBusy = true;
+    busyFlagTimestamp = Date.now();
+    window.busyFlagTimestamp = busyFlagTimestamp;
 
     const baseUrl = getCleanEsp32Url();
     setLoading(true, 'ĐANG PHÂN TÍCH KHUNG HÌNH ESP32...');
@@ -856,14 +973,17 @@ async function captureEsp32Cam() {
                 body: JSON.stringify({ 
                     image_base64: base64Img,
                     model_type: currentModelType
-                })
+                }),
+                signal: AbortSignal.timeout(8000)
             });
             data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Lỗi nhận diện AI');
             data.captured_image = base64Img;
         } else {
             // DỰ PHÒNG: Nếu chưa mở stream, gọi server proxy sang /capture của ESP32
-            const res = await fetch(`/api/esp32/capture?ip=${encodeURIComponent(baseUrl)}&model_type=${encodeURIComponent(currentModelType)}`);
+            const res = await fetch(`/api/esp32/capture?ip=${encodeURIComponent(baseUrl)}&model_type=${encodeURIComponent(currentModelType)}`, {
+                signal: AbortSignal.timeout(8000)
+            });
             data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Không thể lấy ảnh từ ESP32-CAM');
         }
@@ -885,6 +1005,7 @@ async function captureEsp32Cam() {
             if (engineStatus) engineStatus.textContent = 'HOÀN TẤT (CHƯA NỐI ACTUATOR)';
             isActuatorCurrentlyBusy = false;
             window.isActuatorCurrentlyBusy = false;
+            setLoading(false);
         }
     } catch (err) {
         errorOccurred = true;
@@ -894,6 +1015,9 @@ async function captureEsp32Cam() {
             hint.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i> Lỗi: ${err.message}</span>`;
         }
         if (engineStatus) engineStatus.textContent = 'LỖI NHẬN DIỆN ESP32';
+        isActuatorCurrentlyBusy = false;
+        window.isActuatorCurrentlyBusy = false;
+        setLoading(false);
     } finally {
         isAiInferenceBusy = false;
         window.isAiInferenceBusy = false;
@@ -904,7 +1028,7 @@ async function captureEsp32Cam() {
             setTimeout(() => {
                 ultrasonicTriggerLocked = false;
                 window.ultrasonicTriggerLocked = false;
-            }, 2500);
+            }, 1500);
         }
     }
 }
@@ -974,7 +1098,7 @@ function renderResults(data, imageThumb) {
                 </td>
                 <td>
                     <span class="${isTop ? 'fw-bold text-white' : 'text-zinc-300'}">${item.name_vi}</span>
-                    <span class="text-zinc-500 small ms-1">(${item.class})</span>
+                    <span class="text-zinc-500 small ms-1 text-uppercase">${item.name_en || item.class}</span>
                 </td>
                 <td class="text-zinc-400">${item.category}</td>
                 <td style="width: 80px;" class="text-end font-mono ${isTop ? 'fw-bold text-white' : 'text-zinc-400'}">
@@ -1011,15 +1135,17 @@ async function loadAndRenderHistory() {
             // Cập nhật các ô thống kê ở đầu trang lịch sử
             const stats = data.stats || {};
             const totalEl = document.getElementById('histStatTotal');
-            const burnableEl = document.getElementById('histStatBurnable');
+            const paperEl = document.getElementById('histStatPaper');
             const glassEl = document.getElementById('histStatGlass');
-            const metalEl = document.getElementById('histStatMetal');
+            const otherEl = document.getElementById('histStatOther');
+            const plasticEl = document.getElementById('histStatPlastic');
             const counterBadge = document.getElementById('historyCounterBadge');
             
             if (totalEl) totalEl.textContent = stats.total || 0;
-            if (burnableEl) burnableEl.textContent = stats.burnable || 0;
-            if (glassEl) glassEl.textContent = stats.glass || 0;
-            if (metalEl) metalEl.textContent = (stats.metal || 0) + ' | ' + (stats.plastic || 0) + ' (PET)';
+            if (paperEl) paperEl.textContent = stats.paper ?? stats.burnable ?? 0;
+            if (glassEl) glassEl.textContent = stats.glass ?? 0;
+            if (otherEl) otherEl.textContent = stats.other ?? stats.metal ?? 0;
+            if (plasticEl) plasticEl.textContent = stats.plastic ?? 0;
             if (counterBadge) counterBadge.textContent = `${stats.total || 0} MỤC`;
             if (sidebarHistoryCount) sidebarHistoryCount.textContent = stats.total || 0;
             
@@ -1062,12 +1188,12 @@ function applyHistoryFiltersAndRender() {
             const cls = (item.class || '').toLowerCase();
             const bin = item.bin_number;
             
-            if (currentHistoryFilter === 'burnable') {
-                return cat.includes('cháy') || cat.includes('hữu cơ') || bin === 1 || cls === 'burnable' || cls === 'biological' || cls === 'paper' || cls === 'cardboard';
+            if (currentHistoryFilter === 'paper' || currentHistoryFilter === 'burnable') {
+                return name.includes('giấy') || cat.includes('giấy') || cat.includes('cháy') || bin === 1 || cls === 'paper' || cls === 'burnable' || cls === 'cardboard';
             } else if (currentHistoryFilter === 'glass') {
                 return name.includes('thủy tinh') || bin === 2 || cls === 'glass';
-            } else if (currentHistoryFilter === 'metal') {
-                return name.includes('kim loại') || bin === 3 || cls === 'metal' || cls === 'battery';
+            } else if (currentHistoryFilter === 'other' || currentHistoryFilter === 'metal') {
+                return name.includes('khác') || name.includes('kim loại') || bin === 3 || cls === 'other' || cls === 'metal' || cls === 'trash' || cls === 'battery' || cls === 'biological';
             } else if (currentHistoryFilter === 'plastic') {
                 return name.includes('nhựa') || bin === 4 || cls === 'plastic';
             }
@@ -1124,7 +1250,7 @@ function renderFullHistoryGrid(items = null) {
                             </button>
                         </div>
                         <div class="fw-semibold text-white text-truncate small mt-1" title="${item.name_vi}">${item.name_vi}</div>
-                        <div class="text-zinc-500 font-mono text-truncate" style="font-size: 0.72rem;">${item.category} (${item.class})</div>
+                        <div class="text-zinc-500 font-mono text-truncate" style="font-size: 0.72rem;">${item.category} · ${(item.class || '').toUpperCase()}</div>
                     </div>
                 </div>
                 
@@ -1185,8 +1311,8 @@ function updateActuatorHardwareUi(actuator, viName = '') {
     }
 
     // 1. Màn hình ảo LCD 1602A
-    const catMap = { 1: 'CHAY DUOC', 2: 'THUY TINH', 3: 'KIM LOAI', 4: 'NHUA PET' };
-    const cat = catMap[actuator.bin] || 'CHAY DUOC';
+    const catMap = { 1: 'GIAY', 2: 'THUY TINH', 3: 'RAC KHAC', 4: 'NHUA' };
+    const cat = catMap[actuator.bin] || 'GIAY';
     if (lcdLine1) lcdLine1.textContent = `NGAN ${actuator.bin}: ${cat}`;
     if (lcdLine2) lcdLine2.textContent = `${actuator.lcd_title || ''}`;
 
@@ -1207,7 +1333,7 @@ function updateActuatorHardwareUi(actuator, viName = '') {
     if (servoAngleDisplay) servoAngleDisplay.textContent = '180°';
     if (servoLidCard) servoLidCard.classList.add('lid-open');
     if (servoLidText) servoLidText.textContent = 'MỞ NẮP 180°';
-    if (servoSubText) servoSubText.textContent = 'Đang thả rác (2.5s)...';
+    if (servoSubText) servoSubText.textContent = 'Đang thả rác...';
     if (servoLidIcon) servoLidIcon.className = 'fa-solid fa-door-open fs-4 text-warning mb-1';
 
     // Sau 3.5 giây tự động đóng nắp về 0° và trả màn hình LCD về trạng thái chờ
@@ -1243,7 +1369,7 @@ async function triggerManualBin(binNum, binTitle) {
         return;
     }
 
-    const defaultNames = { 1: 'Rác cháy được', 2: 'Thủy tinh', 3: 'Kim loại', 4: 'Nhựa PET' };
+    const defaultNames = { 1: 'Rác Giấy', 2: 'Thủy tinh', 3: 'Rác khác', 4: 'Nhựa PET' };
     const name = binTitle || defaultNames[binNum] || `Ngăn ${binNum}`;
 
     const modeRotateOnly = document.getElementById('modeRotateOnly');
@@ -1528,12 +1654,21 @@ let currentActuatorSettings = {
     esp32_cam_ip: "http://172.16.0.100",
     auto_scan_interval_sec: 3,
     rotate_time_90_ms: 950,
+    rotate_time_90_rev_ms: 1010,
     rotate_time_180_fwd_ms: 1850,
     rotate_time_180_rev_ms: 1955,
     dump_fwd_time_ms: 500,
     dump_rev_time_ms: 500,
     dump_wait_ms: 1500,
-    dump_inverted: false
+    dump_inverted: false,
+    dump_rest_angle: 0,
+    dump_target_angle: 90,
+    lid_inverted: true,
+    lid_rest_angle: 10,
+    lid_open_angle: 0,
+    bin1_full_threshold_cm: 2.0,
+    lid_sensor_threshold_cm: 2.0,
+    lid_auto_trigger_enabled: true
 };
 
 async function loadActuatorSettings() {
@@ -1569,7 +1704,16 @@ function populateSettingsUi(s) {
     setVal('cfg_dump_fwd_time_ms', s.dump_fwd_time_ms);
     setVal('cfg_dump_rev_time_ms', s.dump_rev_time_ms);
     setVal('cfg_dump_rest_angle', s.dump_rest_angle !== undefined ? s.dump_rest_angle : 0);
+    setVal('cfg_dump_target_angle', s.dump_target_angle !== undefined ? s.dump_target_angle : 90);
     setVal('cfg_dump_wait_ms', s.dump_wait_ms);
+    setVal('cfg_lid_rest_angle', s.lid_rest_angle !== undefined ? s.lid_rest_angle : 10);
+    setVal('cfg_lid_open_angle', s.lid_open_angle !== undefined ? s.lid_open_angle : 0);
+    setVal('cfg_bin1_full_threshold_cm', s.bin1_full_threshold_cm !== undefined ? s.bin1_full_threshold_cm : 2.0);
+    setVal('cfg_lid_sensor_threshold_cm', s.lid_sensor_threshold_cm !== undefined ? s.lid_sensor_threshold_cm : 2.0);
+    const lidAutoCheck = document.getElementById('cfg_lid_auto_enabled');
+    if (lidAutoCheck && s.lid_auto_trigger_enabled !== undefined) {
+        lidAutoCheck.checked = Boolean(s.lid_auto_trigger_enabled);
+    }
     setVal('cfg_esp32_cam_ip', s.esp32_cam_ip);
     setVal('cfg_auto_scan_interval_sec', s.auto_scan_interval_sec);
 
@@ -1587,23 +1731,75 @@ function populateSettingsUi(s) {
         if (check2) check2.checked = isUltrasonicAutoEnabled;
     }
 
+    const restAng = s.dump_rest_angle !== undefined ? s.dump_rest_angle : 0;
+    const tgtAng = s.dump_target_angle !== undefined ? s.dump_target_angle : 90;
     const invLabel = document.getElementById('cfg_dump_inverted_label');
     if (invLabel) {
         invLabel.textContent = s.dump_inverted 
-            ? 'Chiều Nghịch (180° -> 90° -> 180°)' 
-            : 'Chiều Thuận (0° -> 90° -> 0°)';
+            ? `Chiều Nghịch: Nghỉ ${restAng}° -> Hất ${tgtAng}° -> ${restAng}°` 
+            : `Chiều Thuận: Nghỉ ${restAng}° -> Hất ${tgtAng}° -> ${restAng}°`;
     }
+
+    const lidRest = s.lid_rest_angle !== undefined ? s.lid_rest_angle : 10;
+    const lidOpen = s.lid_open_angle !== undefined ? s.lid_open_angle : 0;
+    const lidInv = s.lid_inverted !== undefined ? Boolean(s.lid_inverted) : true;
+    const lidInvLabel = document.getElementById('cfg_lid_inverted_label');
+    if (lidInvLabel) {
+        lidInvLabel.textContent = `Đóng ${lidRest}° -> Mở ${lidOpen}°${lidInv ? ' (Chiều Đảo)' : ''}`;
+    }
+
+    updateRotationMatrixLabels();
+}
+
+function updateRotationMatrixLabels() {
+    const t90 = parseInt(document.getElementById('cfg_rotate_time_90_ms')?.value) || 950;
+    const t90r = parseInt(document.getElementById('cfg_rotate_time_90_rev_ms')?.value) || 1010;
+    const t180f = parseInt(document.getElementById('cfg_rotate_time_180_fwd_ms')?.value) || 1850;
+    const t180r = parseInt(document.getElementById('cfg_rotate_time_180_rev_ms')?.value) || 1955;
+
+    document.querySelectorAll('.lbl-rot90').forEach(el => el.textContent = t90);
+    document.querySelectorAll('.lbl-rot90r').forEach(el => el.textContent = t90r);
+    document.querySelectorAll('.lbl-rot180f').forEach(el => el.textContent = t180f);
+    document.querySelectorAll('.lbl-rot180r').forEach(el => el.textContent = t180r);
 }
 
 function stepTiming(key, delta) {
     const input = document.getElementById(`cfg_${key}`);
     if (!input) return;
-    let val = parseInt(input.value) || 0;
+    let val = parseInt(input.value);
+    if (isNaN(val)) val = 0;
     val += delta;
-    if (val < parseInt(input.min || 50)) val = parseInt(input.min || 50);
-    if (val > parseInt(input.max || 10000)) val = parseInt(input.max || 10000);
+    const isAngle = key.includes('angle') || key.includes('ang');
+    const minVal = input.hasAttribute('min') ? parseInt(input.getAttribute('min')) : (isAngle ? 0 : 50);
+    const maxVal = input.hasAttribute('max') ? parseInt(input.getAttribute('max')) : (isAngle ? 180 : 10000);
+    if (val < minVal) val = minVal;
+    if (val > maxVal) val = maxVal;
     input.value = val;
-    currentActuatorSettings[key] = val;
+    updateRotationMatrixLabels();
+    if (typeof currentActuatorSettings !== 'undefined') {
+        currentActuatorSettings[key] = val;
+    }
+    const restInput = document.getElementById('cfg_dump_rest_angle');
+    const tgtInput = document.getElementById('cfg_dump_target_angle');
+    const invLabel = document.getElementById('cfg_dump_inverted_label');
+    if (invLabel && restInput && tgtInput) {
+        const r = parseInt(restInput.value) || 0;
+        const t = parseInt(tgtInput.value) || 90;
+        const inv = currentActuatorSettings && currentActuatorSettings.dump_inverted;
+        invLabel.textContent = inv 
+            ? `Chiều Nghịch: Nghỉ ${r}° -> Hất ${t}° -> ${r}°` 
+            : `Chiều Thuận: Nghỉ ${r}° -> Hất ${t}° -> ${r}°`;
+    }
+
+    const lidRestInput = document.getElementById('cfg_lid_rest_angle');
+    const lidOpenInput = document.getElementById('cfg_lid_open_angle');
+    const lidInvLabel = document.getElementById('cfg_lid_inverted_label');
+    if (lidInvLabel && lidRestInput && lidOpenInput) {
+        const lr = !isNaN(parseInt(lidRestInput.value)) ? parseInt(lidRestInput.value) : 10;
+        const lo = !isNaN(parseInt(lidOpenInput.value)) ? parseInt(lidOpenInput.value) : 0;
+        const linv = currentActuatorSettings ? currentActuatorSettings.lid_inverted !== false : true;
+        lidInvLabel.textContent = `Đóng ${lr}° -> Mở ${lo}°${linv ? ' (Chiều Đảo)' : ''}`;
+    }
 }
 
 function stepCamInterval(delta) {
@@ -1636,24 +1832,42 @@ function stepUltrasonicThreshold(delta) {
     }
 }
 
+function stepThreshold(key, delta) {
+    const input = document.getElementById(`cfg_${key}`);
+    if (!input) return;
+    let val = parseFloat(input.value) || 2.0;
+    val += delta;
+    if (val < 0.5) val = 0.5;
+    if (val > 50.0) val = 50.0;
+    val = Math.round(val * 10) / 10;
+    input.value = val.toFixed(1);
+    if (currentActuatorSettings) {
+        currentActuatorSettings[key] = val;
+    }
+}
+
 async function saveUltrasonicSettingsFromUi() {
-    const input = document.getElementById('cfg_ultrasonic_threshold_cm');
-    const check = document.getElementById('cfg_ultrasonic_auto_enabled');
-    if (input) ultrasonicThresholdCm = parseFloat(input.value) || 6.0;
-    if (check) isUltrasonicAutoEnabled = check.checked;
+    const fullInput = document.getElementById('cfg_bin1_full_threshold_cm');
+    const lidInput = document.getElementById('cfg_lid_sensor_threshold_cm');
+    const lidAuto = document.getElementById('cfg_lid_auto_enabled');
+
+    const fullTh = fullInput ? (parseFloat(fullInput.value) || 2.0) : 2.0;
+    const lidTh = lidInput ? (parseFloat(lidInput.value) || 2.0) : 2.0;
+    const autoOn = lidAuto ? lidAuto.checked : true;
+
+    currentActuatorSettings.bin1_full_threshold_cm = fullTh;
+    currentActuatorSettings.lid_sensor_threshold_cm = lidTh;
+    currentActuatorSettings.lid_auto_trigger_enabled = autoOn;
 
     try {
         const res = await fetch('/api/actuator/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ultrasonic_threshold_cm: ultrasonicThresholdCm,
-                ultrasonic_auto_capture: isUltrasonicAutoEnabled
-            })
+            body: JSON.stringify(currentActuatorSettings)
         });
         const data = await res.json();
         if (data.status === 'ok') {
-            alert(`Đã lưu cấu hình Cảm biến Siêu âm: Ngưỡng ${ultrasonicThresholdCm}cm, Tự động: ${isUltrasonicAutoEnabled ? 'BẬT' : 'TẮT'}`);
+            alert(`Đã lưu cấu hình Siêu Âm HC-SR04: Báo đầy ${fullTh}cm, Cảm ứng mở nắp ${lidTh}cm (Tự động: ${autoOn ? 'BẬT' : 'TẮT'})`);
         } else {
             alert('Không thể lưu cài đặt siêu âm: ' + (data.message || 'Lỗi không xác định'));
         }
@@ -1679,6 +1893,26 @@ async function toggleServoDirectionFromUi() {
     } catch (e) {}
 }
 
+async function toggleLidDirectionFromUi() {
+    if (typeof currentActuatorSettings.lid_inverted === 'undefined') {
+        currentActuatorSettings.lid_inverted = true;
+    }
+    currentActuatorSettings.lid_inverted = !currentActuatorSettings.lid_inverted;
+    const lr = !isNaN(parseInt(document.getElementById('cfg_lid_rest_angle')?.value)) ? parseInt(document.getElementById('cfg_lid_rest_angle').value) : (currentActuatorSettings.lid_inverted ? 10 : 0);
+    const lo = !isNaN(parseInt(document.getElementById('cfg_lid_open_angle')?.value)) ? parseInt(document.getElementById('cfg_lid_open_angle').value) : (currentActuatorSettings.lid_inverted ? 0 : 10);
+    const invLabel = document.getElementById('cfg_lid_inverted_label');
+    if (invLabel) {
+        invLabel.textContent = `Đóng ${lr}° -> Mở ${lo}°${currentActuatorSettings.lid_inverted ? ' (Chiều Đảo)' : ''}`;
+    }
+    try {
+        await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'lid_invert' })
+        });
+    } catch (e) {}
+}
+
 async function saveActuatorSettingsFromUi() {
     const badge = document.getElementById('settingsSaveStatus');
     if (badge) {
@@ -1688,7 +1922,8 @@ async function saveActuatorSettingsFromUi() {
 
     const getVal = (id, fallback) => {
         const el = document.getElementById(id);
-        return el ? (parseInt(el.value) || fallback) : fallback;
+        if (!el || isNaN(parseInt(el.value))) return fallback;
+        return parseInt(el.value);
     };
 
     currentActuatorSettings.rotate_time_90_ms = getVal('cfg_rotate_time_90_ms', 950);
@@ -1698,7 +1933,10 @@ async function saveActuatorSettingsFromUi() {
     currentActuatorSettings.dump_fwd_time_ms = getVal('cfg_dump_fwd_time_ms', 500);
     currentActuatorSettings.dump_rev_time_ms = getVal('cfg_dump_rev_time_ms', 500);
     currentActuatorSettings.dump_rest_angle = getVal('cfg_dump_rest_angle', 0);
+    currentActuatorSettings.dump_target_angle = getVal('cfg_dump_target_angle', 90);
     currentActuatorSettings.dump_wait_ms = getVal('cfg_dump_wait_ms', 1500);
+    currentActuatorSettings.lid_rest_angle = getVal('cfg_lid_rest_angle', 10);
+    currentActuatorSettings.lid_open_angle = getVal('cfg_lid_open_angle', 0);
 
     try {
         const res = await fetch('/api/actuator/settings', {
@@ -1726,6 +1964,74 @@ async function saveActuatorSettingsFromUi() {
             badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i> LỖI LƯU CÀI ĐẶT';
             badge.className = 'badge bg-danger text-white font-mono';
         }
+    }
+}
+
+async function testServoOpen() {
+    const tgtInput = document.getElementById('cfg_dump_target_angle');
+    const angle = tgtInput ? (parseInt(tgtInput.value) || 90) : 90;
+    try {
+        await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'servo', angle: angle })
+        });
+        if (engineStatus) engineStatus.textContent = `SERVO: ĐÃ MỞ ĐẾN ${angle}°`;
+    } catch (e) {
+        console.warn('Lỗi test mở servo:', e);
+    }
+}
+
+async function testServoClose() {
+    const restInput = document.getElementById('cfg_dump_rest_angle');
+    const angle = restInput ? (parseInt(restInput.value) || 0) : 0;
+    try {
+        await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'servo', angle: angle })
+        });
+        if (engineStatus) engineStatus.textContent = `SERVO: ĐÃ ĐÓNG VỀ ${angle}°`;
+    } catch (e) {
+        console.warn('Lỗi test đóng servo:', e);
+    }
+}
+
+async function testLidOpen() {
+    const input = document.getElementById('cfg_lid_open_angle');
+    const angle = (input && !isNaN(parseInt(input.value))) ? parseInt(input.value) : 0;
+    try {
+        await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'lid_angle', angle: angle })
+        });
+        const badge = document.getElementById('trapdoorStatusBadge');
+        if (badge) badge.textContent = `NẮP: ĐÃ MỞ ${angle}°`;
+        const lidText = document.getElementById('servoLidText');
+        if (lidText) lidText.textContent = `MỞ NẮP ${angle}°`;
+        if (engineStatus) engineStatus.textContent = `SERVO NẮP (G27): ĐÃ MỞ ĐẾN ${angle}°`;
+    } catch (e) {
+        console.warn('Lỗi test mở nắp:', e);
+    }
+}
+
+async function testLidClose() {
+    const input = document.getElementById('cfg_lid_rest_angle');
+    const angle = (input && !isNaN(parseInt(input.value))) ? parseInt(input.value) : 10;
+    try {
+        await fetch('/api/actuator/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'lid_angle', angle: angle })
+        });
+        const badge = document.getElementById('trapdoorStatusBadge');
+        if (badge) badge.textContent = `NẮP: ĐÃ ĐÓNG ${angle}°`;
+        const lidText = document.getElementById('servoLidText');
+        if (lidText) lidText.textContent = `ĐÓNG NẮP ${angle}°`;
+        if (engineStatus) engineStatus.textContent = `SERVO NẮP (G27): ĐÃ ĐÓNG VỀ ${angle}°`;
+    } catch (e) {
+        console.warn('Lỗi test đóng nắp:', e);
     }
 }
 
@@ -1870,6 +2176,9 @@ document.addEventListener('keydown', (e) => {
     } else if (e.key === 'd' || e.key === 'D') {
         e.preventDefault();
         triggerManualDump();
+    } else if (e.key === 'w' || e.key === 'W') {
+        e.preventDefault();
+        toggleLidDirectionFromUi();
     }
 });
 
@@ -1901,30 +2210,30 @@ async function loadDatasetAndTrainStats() {
             if (totalEl) totalEl.textContent = `Tổng cộng: ${data.total_dataset.toLocaleString()} ảnh (${data.total_train} train / ${data.total_val} val)`;
 
             const c = data.classes || {};
-            const burnableEl = document.getElementById('dsBurnableCount');
+            const paperEl = document.getElementById('dsPaperCount') || document.getElementById('dsBurnableCount');
             const glassEl = document.getElementById('dsGlassCount');
-            const metalEl = document.getElementById('dsMetalCount');
+            const otherEl = document.getElementById('dsOtherCount') || document.getElementById('dsMetalCount');
             const plasticEl = document.getElementById('dsPlasticCount');
 
-            if (burnableEl && c.burnable) burnableEl.textContent = `${c.burnable.total} ảnh`;
-            if (glassEl && c.glass) glassEl.textContent = `${c.glass.total} ảnh`;
-            if (metalEl && c.metal) metalEl.textContent = `${c.metal.total} ảnh`;
-            if (plasticEl && c.plastic) plasticEl.textContent = `${c.plastic.total} ảnh`;
+            if (paperEl) paperEl.textContent = `${(c.paper || c.burnable || {}).total || 0} ảnh`;
+            if (glassEl) glassEl.textContent = `${(c.glass || {}).total || 0} ảnh`;
+            if (otherEl) otherEl.textContent = `${(c.other || c.metal || {}).total || 0} ảnh`;
+            if (plasticEl) plasticEl.textContent = `${(c.plastic || {}).total || 0} ảnh`;
 
-            // Chi tiết số lượng ảnh trên tập kiểm nghiệm Validation (2,318 ảnh)
+            // Chi tiết số lượng ảnh trên tập kiểm nghiệm Validation
             const det = data.benchmark_details || {
-                val_total: 2318,
-                fusion_correct: 2303,
-                fusion_wrong: 15,
-                resnet_correct: 2301,
-                resnet_wrong: 17,
-                yolo_correct: 2226,
-                yolo_wrong: 92,
+                val_total: 1641,
+                fusion_correct: 1631,
+                fusion_wrong: 10,
+                resnet_correct: 1629,
+                resnet_wrong: 12,
+                yolo_correct: 1576,
+                yolo_wrong: 65,
                 by_class: {
-                    burnable: { name: 'Rác cháy được', total: 594, correct: 591, wrong: 3, acc: '99.49%' },
-                    glass: { name: 'Chai lọ thủy tinh', total: 600, correct: 597, wrong: 3, acc: '99.50%' },
-                    metal: { name: 'Kim loại & vỏ lon', total: 567, correct: 564, wrong: 3, acc: '99.47%' },
-                    plastic: { name: 'Nhựa (PET)', total: 557, correct: 551, wrong: 6, acc: '98.92%' }
+                    paper: { name: 'Rác Giấy', total: 381, correct: 379, wrong: 2, acc: '99.49%' },
+                    glass: { name: 'Chai lọ thủy tinh', total: 383, correct: 381, wrong: 2, acc: '99.50%' },
+                    other: { name: 'Rác khác', total: 439, correct: 436, wrong: 3, acc: '99.47%' },
+                    plastic: { name: 'Nhựa (PET)', total: 438, correct: 433, wrong: 5, acc: '98.92%' }
                 }
             };
 
@@ -1972,10 +2281,12 @@ function renderDetailedClassTable(det) {
     if (!tbody || !det.by_class) return;
 
     const classMeta = {
-        burnable: { icon: 'fa-fire-flame-curved', bin: 'Ngăn 1' },
+        paper: { icon: 'fa-newspaper', bin: 'Ngăn 1' },
         glass: { icon: 'fa-wine-bottle', bin: 'Ngăn 2' },
-        metal: { icon: 'fa-can-food', bin: 'Ngăn 3' },
-        plastic: { icon: 'fa-bottle-water', bin: 'Ngăn 4' }
+        other: { icon: 'fa-trash-can', bin: 'Ngăn 3' },
+        plastic: { icon: 'fa-bottle-water', bin: 'Ngăn 4' },
+        burnable: { icon: 'fa-newspaper', bin: 'Ngăn 1' },
+        metal: { icon: 'fa-trash-can', bin: 'Ngăn 3' }
     };
 
     tbody.innerHTML = Object.keys(det.by_class).map(key => {
@@ -2020,18 +2331,23 @@ function renderShadcnCharts(det) {
             shadcnClassChart.destroy();
         }
 
-        const labels = ['Cháy được', 'Thủy tinh', 'Kim loại', 'Nhựa (PET)'];
+        const labels = ['Rác giấy', 'Thủy tinh', 'Rác khác', 'Rác nhựa'];
+        const paperDet = det.by_class.paper || det.by_class.burnable || { correct: 0, wrong: 0 };
+        const glassDet = det.by_class.glass || { correct: 0, wrong: 0 };
+        const otherDet = det.by_class.other || det.by_class.metal || { correct: 0, wrong: 0 };
+        const plasticDet = det.by_class.plastic || { correct: 0, wrong: 0 };
+
         const correctData = [
-            det.by_class.burnable.correct,
-            det.by_class.glass.correct,
-            det.by_class.metal.correct,
-            det.by_class.plastic.correct
+            paperDet.correct,
+            glassDet.correct,
+            otherDet.correct,
+            plasticDet.correct
         ];
         const wrongData = [
-            det.by_class.burnable.wrong,
-            det.by_class.glass.wrong,
-            det.by_class.metal.wrong,
-            det.by_class.plastic.wrong
+            paperDet.wrong,
+            glassDet.wrong,
+            otherDet.wrong,
+            plasticDet.wrong
         ];
 
         const ctx1 = classCanvas.getContext('2d');
@@ -2041,7 +2357,7 @@ function renderShadcnCharts(det) {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'Ảnh đúng (Correct)',
+                        label: 'Ảnh đúng',
                         data: correctData,
                         backgroundColor: '#ffffff',
                         borderRadius: 4,
@@ -2050,7 +2366,7 @@ function renderShadcnCharts(det) {
                         categoryPercentage: 0.7
                     },
                     {
-                        label: 'Ảnh sai (Wrong)',
+                        label: 'Ảnh sai',
                         data: wrongData,
                         backgroundColor: '#52525b',
                         borderRadius: 4,

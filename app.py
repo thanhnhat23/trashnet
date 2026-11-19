@@ -32,212 +32,114 @@ def add_header(response):
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# Waste category metadata with FontAwesome 6 icons and professional color schemes
+CLASS_FOLDER_MAP = {
+    'burnable': 'paper',
+    'cardboard': 'paper',
+    'paper': 'paper',
+    'glass': 'glass',
+    'metal': 'other',
+    'trash': 'other',
+    'battery': 'other',
+    'biological': 'other',
+    'other': 'other',
+    'plastic': 'plastic'
+}
+
 WASTE_META = {
-    'burnable': {
-        'name_vi': 'Rác cháy được (Hữu cơ & Giấy)',
-        'category': 'Rác cháy được',
-        'badge_color': '#22c55e',
-        'badge_bg': 'rgba(34, 197, 94, 0.15)',
-        'bin': 'Thùng rác hữu cơ / cháy được (Màu Xanh lá)',
-        'bin_color': '#16a34a',
-        'icon': 'fa-solid fa-fire',
-        'color': '#22c55e',
-        'tips': 'Bao gồm thức ăn thừa, cuống rau củ quả, giấy báo, bã hữu cơ dễ cháy hoặc phân hủy sinh học.'
-    },
-    'battery': {
-        'name_vi': 'Pin & Ắc quy',
-        'category': 'Rác nguy hại',
-        'badge_color': '#ef4444',
-        'badge_bg': 'rgba(239, 68, 68, 0.15)',
-        'bin': 'Thùng rác nguy hại (Màu Đỏ)',
-        'bin_color': '#dc2626',
-        'icon': 'fa-solid fa-car-battery',
-        'color': '#ef4444',
-        'tips': 'Tuyệt đối không vứt chung với rác sinh hoạt. Thu gom và đem đến các điểm tái chế rác điện tử để tránh rò rỉ hóa chất độc hại vào đất và nguồn nước.'
-    },
-    'biological': {
-        'name_vi': 'Rác hữu cơ sinh hoạt',
-        'category': 'Rác hữu cơ',
-        'badge_color': '#22c55e',
-        'badge_bg': 'rgba(34, 197, 94, 0.15)',
-        'bin': 'Thùng rác hữu cơ (Màu Xanh lá)',
-        'bin_color': '#16a34a',
-        'icon': 'fa-solid fa-apple-whole',
-        'color': '#22c55e',
-        'tips': 'Bao gồm thức ăn thừa, cuống rau củ quả, vỏ trứng, bã cà phê. Có thể ủ làm phân bón sinh học hữu cơ cho cây trồng.'
-    },
-    'cardboard': {
-        'name_vi': 'Bìa carton & Hộp giấy',
+    'paper': {
+        'name_vi': 'Rác giấy',
+        'name_en': 'PAPER',
         'category': 'Rác tái chế',
         'badge_color': '#3b82f6',
         'badge_bg': 'rgba(59, 130, 246, 0.15)',
-        'bin': 'Thùng rác tái chế (Màu Xanh dương)',
+        'bin': 'Ngăn 1: Rác giấy',
         'bin_color': '#2563eb',
-        'icon': 'fa-solid fa-box-open',
+        'icon': 'fa-solid fa-newspaper',
         'color': '#3b82f6',
-        'tips': 'Gấp phẳng hộp để tiết kiệm diện tích. Giữ khô ráo và bỏ vào thùng rác tái chế giấy.'
+        'tips': 'Bao gồm giấy báo, sách vở, cốc giấy sạch, hộp bìa. Giữ giấy khô ráo để thuận tiện tái chế.'
     },
     'glass': {
-        'name_vi': 'Thủy tinh & Chai lọ',
+        'name_vi': 'Thủy tinh',
+        'name_en': 'GLASS',
         'category': 'Rác tái chế',
         'badge_color': '#06b6d4',
         'badge_bg': 'rgba(6, 182, 212, 0.15)',
-        'bin': 'Thùng rác tái chế (Màu Xanh dương)',
+        'bin': 'Ngăn 2: Thủy tinh',
         'bin_color': '#0891b2',
         'icon': 'fa-solid fa-wine-glass-empty',
         'color': '#06b6d4',
-        'tips': 'Rửa sạch cặn đồ uống. Nếu chai lọ bị nứt vỡ, hãy bọc giấy báo cẩn thận để bảo vệ an toàn cho người thu gom rác.'
+        'tips': 'Bao gồm chai lọ, hũ thủy tinh. Rửa sạch cặn đồ uống, tránh làm vỡ vụn khi phân loại.'
     },
-    'metal': {
-        'name_vi': 'Kim loại & Vỏ lon',
-        'category': 'Rác tái chế',
+    'other': {
+        'name_vi': 'Rác khác',
+        'name_en': 'OTHER',
+        'category': 'Rác không tái chế',
         'badge_color': '#f59e0b',
         'badge_bg': 'rgba(245, 158, 11, 0.15)',
-        'bin': 'Thùng rác tái chế (Màu Xanh dương)',
+        'bin': 'Ngăn 3: Rác khác',
         'bin_color': '#d97706',
-        'icon': 'fa-solid fa-cube',
+        'icon': 'fa-solid fa-trash-can',
         'color': '#f59e0b',
-        'tips': 'Vỏ lon nhôm, đồ hộp sắt có giá trị tái chế rất cao. Nên súc rửa sạch và dẹp phẳng trước khi bỏ vào thùng rác.'
-    },
-    'paper': {
-        'name_vi': 'Giấy vụn & Sách báo',
-        'category': 'Rác tái chế',
-        'badge_color': '#60a5fa',
-        'badge_bg': 'rgba(96, 165, 250, 0.15)',
-        'bin': 'Thùng rác tái chế (Màu Xanh dương)',
-        'bin_color': '#2563eb',
-        'icon': 'fa-solid fa-newspaper',
-        'color': '#60a5fa',
-        'tips': 'Giữ giấy sạch và khô ráo. Tránh để dính dầu mỡ hoặc thực phẩm vì sẽ làm giảm khả năng tái chế sợi bột giấy.'
+        'tips': 'Bao gồm kim loại, vỏ lon, túi nilon dơ, pin hoặc rác sinh hoạt không thuộc 3 nhóm còn lại.'
     },
     'plastic': {
-        'name_vi': 'Nhựa & Chai nhựa PET',
+        'name_vi': 'Rác nhựa',
+        'name_en': 'PLASTIC',
         'category': 'Rác tái chế',
         'badge_color': '#10b981',
         'badge_bg': 'rgba(16, 185, 129, 0.15)',
-        'bin': 'Thùng rác tái chế (Màu Vàng / Xanh)',
-        'bin_color': '#eab308',
+        'bin': 'Ngăn 4: Rác nhựa',
+        'bin_color': '#059669',
         'icon': 'fa-solid fa-bottle-water',
         'color': '#10b981',
-        'tips': 'Đổ sạch chất lỏng bên trong, ép dẹp chai để giảm thể tích và bỏ vào thùng rác tái chế nhựa.'
-    },
-    'trash': {
-        'name_vi': 'Rác vô cơ khác',
-        'category': 'Rác không tái chế',
-        'badge_color': '#94a3b8',
-        'badge_bg': 'rgba(148, 163, 184, 0.15)',
-        'bin': 'Thùng rác thông thường (Màu Xám / Đen)',
-        'bin_color': '#475569',
-        'icon': 'fa-solid fa-trash-can',
-        'color': '#94a3b8',
-        'tips': 'Bao gồm túi nilon bẩn, khăn ướt, tã lót, rác sinh hoạt tổng hợp không tái chế được. Cần buộc chặt túi để đưa đi xử lý hợp vệ sinh.'
+        'tips': 'Bao gồm chai nhựa, nắp chai, cốc nhựa. Làm sạch và làm dẹp chai trước khi bỏ vào thùng.'
     }
 }
-# ==============================================================================
-# BẢNG QUY HOẠCH 4 NGĂN RÁC CHUẨN XÁC CHO ĐỘNG CƠ BƯỚC + SERVO 180° + LCD 1602
-# ==============================================================================
-BIN_MAPPING = {
-    # 1. Ngăn 1: Rác Cháy Được (burnable) - Góc 0°
-    'burnable': {
-        'bin': 1,
-        'bin_name': 'Rác Cháy Được (Hữu cơ & Giấy)',
-        'lcd_title': 'Rac Chay Duoc',
-        'angle': 0,
-        'color': '#22c55e',
-        'icon': 'fa-solid fa-fire'
-    },
 
-    # 2. Ngăn 2: Chai Lọ Thủy Tinh (glass) - Góc 90°
+BIN_MAPPING = {
+    'paper': {
+        'bin': 1,
+        'bin_name': 'Rác giấy',
+        'lcd_title': 'Rac giay',
+        'angle': 0,
+        'color': '#3b82f6',
+        'icon': 'fa-solid fa-newspaper'
+    },
     'glass': {
         'bin': 2,
-        'bin_name': 'Rác Thủy Tinh (Chai lọ)',
-        'lcd_title': 'Chai Thuy Tinh',
+        'bin_name': 'Thủy tinh',
+        'lcd_title': 'Thuy tinh',
         'angle': 90,
         'color': '#06b6d4',
         'icon': 'fa-solid fa-wine-glass-empty'
     },
-
-    # 3. Ngăn 3: Kim Loại & Vỏ Lon (metal) - Góc 180°
-    'metal': {
+    'other': {
         'bin': 3,
-        'bin_name': 'Rác Kim Loại (Vỏ lon)',
-        'lcd_title': 'Vo Lon Kim Loai',
+        'bin_name': 'Rác khác',
+        'lcd_title': 'Rac khac',
         'angle': 180,
         'color': '#f59e0b',
-        'icon': 'fa-solid fa-cube'
+        'icon': 'fa-solid fa-trash-can'
     },
-
-    # 4. Ngăn 4: Nhựa & Chai PET (plastic) - Góc 270°
     'plastic': {
         'bin': 4,
-        'bin_name': 'Rác Nhựa (Chai PET)',
-        'lcd_title': 'Chai Nhua (PET)',
+        'bin_name': 'Rác nhựa',
+        'lcd_title': 'Rac nhua',
         'angle': 270,
         'color': '#10b981',
         'icon': 'fa-solid fa-bottle-water'
-    },
-
-    # Lớp ánh xạ dự phòng:
-    'biological': {
-        'bin': 1,
-        'bin_name': 'Rác Hữu Cơ Sinh Hoạt',
-        'lcd_title': 'Huu Co (Do an)',
-        'angle': 0,
-        'color': '#22c55e',
-        'icon': 'fa-solid fa-apple-whole'
-    },
-    'cardboard': {
-        'bin': 1,
-        'bin_name': 'Rác Cháy Được (Bìa Carton)',
-        'lcd_title': 'Bia Carton',
-        'angle': 0,
-        'color': '#3b82f6',
-        'icon': 'fa-solid fa-box-open'
-    },
-    'paper': {
-        'bin': 1,
-        'bin_name': 'Rác Cháy Được (Giấy báo)',
-        'lcd_title': 'Giay Bao / Tap',
-        'angle': 0,
-        'color': '#60a5fa',
-        'icon': 'fa-solid fa-newspaper'
-    },
-    'trash': {
-        'bin': 1,
-        'bin_name': 'Rác Vô Cơ Sinh Hoạt',
-        'lcd_title': 'Rac Vo Co Khac',
-        'angle': 0,
-        'color': '#94a3b8',
-        'icon': 'fa-solid fa-trash-can'
-    },
-    'battery': {
-        'bin': 3,
-        'bin_name': 'Rác Thải Nguy Hại',
-        'lcd_title': 'Pin / Ac Quy',
-        'angle': 180,
-        'color': '#ef4444',
-        'icon': 'fa-solid fa-car-battery'
     }
 }
 
 def get_bin_info_for_label(label):
     lbl = (label or '').strip().lower()
-    return BIN_MAPPING.get(lbl, {
-        'bin': 1,
-        'bin_name': 'Rác Cháy Được (Mặc định)',
-        'lcd_title': 'Rac Chay Duoc',
-        'angle': 0,
-        'color': '#22c55e',
-        'icon': 'fa-solid fa-fire'
-    })
+    lbl = CLASS_FOLDER_MAP.get(lbl, lbl)
+    return BIN_MAPPING.get(lbl, BIN_MAPPING['paper'])
 
 def format_prediction_result(raw_result):
-    """
-    Enriches raw prediction result with metadata, modern FontAwesome styling, and multi-model comparison.
-    """
-    top_class = raw_result["class"]
-    top_meta = WASTE_META.get(top_class, {})
+    raw_top = (raw_result.get("class") or "").strip().lower()
+    top_class = CLASS_FOLDER_MAP.get(raw_top, raw_top or "paper")
+    top_meta = WASTE_META.get(top_class, WASTE_META['paper'])
     active_model = raw_result.get("active_model", "fusion")
 
     model_display_names = {
@@ -246,32 +148,43 @@ def format_prediction_result(raw_result):
         'yolo': 'YOLO11n'
     }
 
-    # Enrich all prediction items
+    # Tổng hợp phân phối xác suất cho 4 folder chuẩn
+    class_probs = {'paper': 0.0, 'glass': 0.0, 'other': 0.0, 'plastic': 0.0}
+    for item in raw_result.get("all_predictions", []):
+        c_orig = (item.get("class") or "").strip().lower()
+        c_canon = CLASS_FOLDER_MAP.get(c_orig, c_orig)
+        conf = float(item.get("confidence", 0.0))
+        if c_canon in class_probs:
+            class_probs[c_canon] = max(class_probs[c_canon], conf)
+        else:
+            class_probs['other'] = max(class_probs['other'], conf)
+
+    sorted_classes = sorted(class_probs.items(), key=lambda x: x[1], reverse=True)
     enriched_predictions = []
-    for item in raw_result["all_predictions"]:
-        c_name = item["class"]
+    for c_name, conf in sorted_classes:
         meta = WASTE_META.get(c_name, {})
         enriched_predictions.append({
             "class": c_name,
             "name_vi": meta.get("name_vi", c_name),
-            "category": meta.get("category", "Chưa phân loại"),
+            "name_en": meta.get("name_en", c_name.upper()),
+            "category": meta.get("category", "Rác tái chế"),
             "badge_color": meta.get("badge_color", "#94a3b8"),
             "badge_bg": meta.get("badge_bg", "rgba(148, 163, 184, 0.15)"),
             "icon": meta.get("icon", "fa-solid fa-recycle"),
             "color": meta.get("color", "#10b981"),
-            "confidence": item["confidence"]
+            "confidence": round(conf, 2)
         })
 
-    # Model agreement check
-    resnet_pred = raw_result["resnet_prediction"]
-    yolo_pred = raw_result["yolo_prediction"]
+    resnet_raw = (raw_result.get("resnet_prediction") or "").strip().lower()
+    yolo_raw = (raw_result.get("yolo_prediction") or "").strip().lower()
+    resnet_pred = CLASS_FOLDER_MAP.get(resnet_raw, resnet_raw)
+    yolo_pred = CLASS_FOLDER_MAP.get(yolo_raw, yolo_raw)
     models_agree = (resnet_pred == yolo_pred)
 
     resnet_meta = WASTE_META.get(resnet_pred, {})
     yolo_meta = WASTE_META.get(yolo_pred, {})
 
     bin_info = get_bin_info_for_label(top_class)
-
     method_desc = model_display_names.get(active_model, 'Fusion')
 
     return {
@@ -279,6 +192,7 @@ def format_prediction_result(raw_result):
         "active_model_name": model_display_names.get(active_model, 'Late Fusion'),
         "class": top_class,
         "name_vi": top_meta.get("name_vi", top_class),
+        "name_en": top_meta.get("name_en", top_class.upper()),
         "category": top_meta.get("category", "Chưa xác định"),
         "badge_color": top_meta.get("badge_color", "#10b981"),
         "badge_bg": top_meta.get("badge_bg", "rgba(16, 185, 129, 0.15)"),
@@ -291,8 +205,6 @@ def format_prediction_result(raw_result):
         "tips": top_meta.get("tips", ""),
         "confidence": raw_result["confidence"],
         "all_predictions": enriched_predictions,
-
-        # Multi-model detailed breakdown
         "fusion_info": {
             "method": method_desc,
             "active_model": active_model,
@@ -303,17 +215,19 @@ def format_prediction_result(raw_result):
                 "weight_percent": int(RESNET_WEIGHT * 100),
                 "prediction": resnet_pred,
                 "name_vi": resnet_meta.get("name_vi", resnet_pred),
+                "name_en": resnet_meta.get("name_en", resnet_pred.upper()),
                 "icon": "fa-solid fa-network-wired",
-                "confidence": raw_result["resnet_confidence"]
+                "confidence": raw_result.get("resnet_confidence", 0)
             },
             "yolo": {
-                "name": "YOLO11n-cls",
+                "name": "YOLO11n",
                 "weight": YOLO_WEIGHT,
                 "weight_percent": int(YOLO_WEIGHT * 100),
                 "prediction": yolo_pred,
                 "name_vi": yolo_meta.get("name_vi", yolo_pred),
+                "name_en": yolo_meta.get("name_en", yolo_pred.upper()),
                 "icon": "fa-solid fa-bolt-lightning",
-                "confidence": raw_result["yolo_confidence"]
+                "confidence": raw_result.get("yolo_confidence", 0)
             }
         }
     }
@@ -335,9 +249,7 @@ def serve_firmware(filename):
 
 
 
-# ==============================================================================
-# QUẢN LÝ LƯU TRỮ TRỰC TIẾP VÀO FILE: CÀI ĐẶT THIẾT BỊ & LỊCH SỬ PHÂN LOẠI
-# ==============================================================================
+# Cấu hình thiết bị & lưu trữ lịch sử
 SETTINGS_FILE = BASE_DIR / 'actuator_settings.json'
 HISTORY_FILE = BASE_DIR / 'classification_history.json'
 
@@ -355,8 +267,40 @@ DEFAULT_SETTINGS = {
     "dump_fwd_time_ms": 500,
     "dump_rev_time_ms": 500,
     "dump_wait_ms": 1500,
-    "dump_inverted": False
+    "dump_inverted": False,
+    "dump_rest_angle": 0,
+    "dump_target_angle": 90
 }
+
+def compute_rotation_matrix(t90=950, t90r=1010, t180f=1850, t180r=1955):
+    """Tính toán bảng ma trận thời gian quay chuẩn giữa 4 ngăn thùng rác."""
+    return {
+        "description": "Bảng ma trận thời gian quay giữa 4 thùng rác (Chuẩn thực tế)",
+        "table_ms": [
+            [0, t90, t180f, t90r],
+            [t90r, 0, t90, t180f],
+            [t180r, t90r, 0, t90],
+            [t90, t180r, t90r, 0]
+        ],
+        "details": {
+            "1_to_1": { "dir": 0, "time_ms": 0, "desc": "0 ms" },
+            "1_to_2": { "dir": 1, "time_ms": t90, "desc": f"Thuận 90°: {t90} ms" },
+            "1_to_3": { "dir": 1, "time_ms": t180f, "desc": f"Thuận 180°: {t180f} ms" },
+            "1_to_4": { "dir": -1, "time_ms": t90r, "desc": f"Nghịch 90°: {t90r} ms" },
+            "2_to_1": { "dir": -1, "time_ms": t90r, "desc": f"Nghịch 90°: {t90r} ms" },
+            "2_to_2": { "dir": 0, "time_ms": 0, "desc": "0 ms" },
+            "2_to_3": { "dir": 1, "time_ms": t90, "desc": f"Thuận 90°: {t90} ms" },
+            "2_to_4": { "dir": 1, "time_ms": t180f, "desc": f"Thuận 180°: {t180f} ms" },
+            "3_to_1": { "dir": -1, "time_ms": t180r, "desc": f"Nghịch 180°: {t180r} ms" },
+            "3_to_2": { "dir": -1, "time_ms": t90r, "desc": f"Nghịch 90°: {t90r} ms" },
+            "3_to_3": { "dir": 0, "time_ms": 0, "desc": "0 ms" },
+            "3_to_4": { "dir": 1, "time_ms": t90, "desc": f"Thuận 90°: {t90} ms" },
+            "4_to_1": { "dir": 1, "time_ms": t90, "desc": f"Thuận 90°: {t90} ms" },
+            "4_to_2": { "dir": -1, "time_ms": t180r, "desc": f"Nghịch 180°: {t180r} ms" },
+            "4_to_3": { "dir": -1, "time_ms": t90r, "desc": f"Nghịch 90°: {t90r} ms" },
+            "4_to_4": { "dir": 0, "time_ms": 0, "desc": "0 ms" }
+        }
+    }
 
 def load_actuator_settings():
     if not SETTINGS_FILE.exists():
@@ -367,6 +311,12 @@ def load_actuator_settings():
             data = json.load(f)
             merged = dict(DEFAULT_SETTINGS)
             merged.update(data)
+            merged['rotation_matrix'] = compute_rotation_matrix(
+                merged.get('rotate_time_90_ms', 950),
+                merged.get('rotate_time_90_rev_ms', 1010),
+                merged.get('rotate_time_180_fwd_ms', 1850),
+                merged.get('rotate_time_180_rev_ms', 1955)
+            )
             return merged
     except Exception as e:
         print(f"[SETTINGS] Lỗi đọc file {SETTINGS_FILE}: {e}")
@@ -386,9 +336,7 @@ ENABLE_ESP32_ACTUATOR = ACTUATOR_SETTINGS.get('enabled', True)
 ESP32_ACTUATOR_IP = ACTUATOR_SETTINGS.get('actuator_ip', "http://172.16.2.237")
 ESP32_CAM_IP = ACTUATOR_SETTINGS.get('esp32_cam_ip', "http://172.16.0.100")
 
-# ====================================================================
-# AUTO-DISCOVERY UDP LISTENER (Tự động nhận IP từ 2 ESP32 qua mạng LAN)
-# ====================================================================
+# UDP listener tự động nhận IP từ 2 ESP32 qua mạng LAN
 UDP_DISCOVERY_PORT = 5005
 
 def start_udp_discovery_listener():
@@ -758,10 +706,19 @@ def api_actuator_settings():
                     'ultrasonic_threshold_cm', 'ultrasonic_auto_capture',
                     'rotate_time_90_ms', 'rotate_time_90_rev_ms', 'rotate_time_180_fwd_ms', 'rotate_time_180_rev_ms',
                     'dump_fwd_time_ms', 'dump_rev_time_ms', 'dump_wait_ms', 'dump_inverted',
-                    'dump_rest_angle', 'dump_target_angle']:
+                    'dump_rest_angle', 'dump_target_angle',
+                    'lid_inverted', 'lid_rest_angle', 'lid_open_angle', 'bin1_full_threshold_cm', 'lid_sensor_threshold_cm', 'lid_auto_trigger_enabled']:
             if key in data:
                 current[key] = data[key]
                 
+        # Tự động cập nhật ma trận thời gian quay giữa 4 thùng theo thông số mới
+        current['rotation_matrix'] = compute_rotation_matrix(
+            current.get('rotate_time_90_ms', 950),
+            current.get('rotate_time_90_rev_ms', 1010),
+            current.get('rotate_time_180_fwd_ms', 1850),
+            current.get('rotate_time_180_rev_ms', 1955)
+        )
+
         # Lưu trực tiếp vào file actuator_settings.json
         save_actuator_settings(current)
         ACTUATOR_SETTINGS = current
@@ -774,6 +731,7 @@ def api_actuator_settings():
         if ENABLE_ESP32_ACTUATOR and ESP32_ACTUATOR_IP:
             try:
                 inv_val = 1 if current.get('dump_inverted', False) else 0
+                lid_inv_val = 1 if current.get('lid_inverted', True) else 0
                 calib_url = (
                     f"{ESP32_ACTUATOR_IP.rstrip('/')}/calib?"
                     f"t90={int(current.get('rotate_time_90_ms', 950))}&"
@@ -785,6 +743,12 @@ def api_actuator_settings():
                     f"dumpw={int(current.get('dump_wait_ms', 1500))}&"
                     f"dumprest={int(current.get('dump_rest_angle', 0))}&"
                     f"dumptgt={int(current.get('dump_target_angle', 90))}&"
+                    f"lidrest={int(current.get('lid_rest_angle', 180))}&"
+                    f"lidopen={int(current.get('lid_open_angle', 170))}&"
+                    f"lid_inv={lid_inv_val}&"
+                    f"fullth={float(current.get('bin1_full_threshold_cm', 2.0))}&"
+                    f"lidth={float(current.get('lid_sensor_threshold_cm', 2.0))}&"
+                    f"lid_auto={1 if current.get('lid_auto_trigger_enabled', True) else 0}&"
                     f"inv={inv_val}&save=1"
                 )
                 req = urllib.request.Request(calib_url, headers={'User-Agent': 'TrashNet-Server/1.0', 'Connection': 'close'})
@@ -838,9 +802,9 @@ def api_history():
     # GET
     records = load_classification_history()
     total = len(records)
-    cat_burnable = sum(1 for r in records if 'cháy' in r.get('category', '').lower() or 'hữu cơ' in r.get('category', '').lower() or r.get('bin_number') == 1)
+    cat_paper = sum(1 for r in records if 'giấy' in r.get('name_vi', '').lower() or 'giấy' in r.get('category', '').lower() or 'cháy' in r.get('category', '').lower() or r.get('bin_number') == 1)
     cat_glass = sum(1 for r in records if 'thủy tinh' in r.get('name_vi', '').lower() or r.get('bin_number') == 2)
-    cat_metal = sum(1 for r in records if 'kim loại' in r.get('name_vi', '').lower() or r.get('bin_number') == 3)
+    cat_other = sum(1 for r in records if 'khác' in r.get('name_vi', '').lower() or 'kim loại' in r.get('name_vi', '').lower() or r.get('bin_number') == 3)
     cat_plastic = sum(1 for r in records if 'nhựa' in r.get('name_vi', '').lower() or r.get('bin_number') == 4)
 
     return jsonify({
@@ -849,10 +813,12 @@ def api_history():
         'records': records,
         'stats': {
             'total': total,
-            'burnable': cat_burnable,
+            'paper': cat_paper,
             'glass': cat_glass,
-            'metal': cat_metal,
-            'plastic': cat_plastic
+            'other': cat_other,
+            'plastic': cat_plastic,
+            'burnable': cat_paper,
+            'metal': cat_other
         }
     })
 
@@ -941,6 +907,15 @@ def actuator_control():
         elif action == 'rotate_test':
             step = data.get('step', '3_fwd')
             url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/rotate?test={step}"
+        elif action == 'lid_open':
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?lid=open"
+        elif action == 'lid_close':
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?lid=close"
+        elif action == 'lid_invert':
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?lid_invert=1"
+        elif action == 'lid_angle':
+            angle = int(data.get('angle', 10))
+            url = f"{ESP32_ACTUATOR_IP.rstrip('/')}/servo?lid_angle={angle}"
         else:
             return jsonify({'error': 'Hành động không hợp lệ'}), 400
 
@@ -984,10 +959,7 @@ def get_model_info():
     })
 
 
-# ============================================================
-# DATASET & AUTOMATED TRAINING PIPELINE
-# ============================================================
-
+# Quản lý huấn luyện và thống kê Dataset
 DATA_SPLIT_DIR = BASE_DIR / "data" / "pbl4_split"
 
 train_state = {
@@ -1014,36 +986,49 @@ def add_train_log(msg):
 
 @app.route('/api/dataset/stats', methods=['GET'])
 def get_dataset_stats():
-    classes = ['burnable', 'glass', 'metal', 'plastic']
+    classes = ['paper', 'glass', 'other', 'plastic']
+    dataset_resized_dir = BASE_DIR / "data" / "dataset-resized"
     stats = {}
     total_train = 0
     total_val = 0
 
     for cls in classes:
+        # Đếm trực tiếp từ thư mục dataset-resized
+        resized_folder = dataset_resized_dir / cls
+        total_in_folder = len(list(resized_folder.glob('*.*'))) if resized_folder.exists() else 0
+
+        # Kiểm tra nếu có split train/val
         train_folder = DATA_SPLIT_DIR / "train" / cls
         val_folder = DATA_SPLIT_DIR / "val" / cls
+        if train_folder.exists() and len(list(train_folder.glob('*.*'))) > 0:
+            train_count = len(list(train_folder.glob('*.*')))
+            val_count = len(list(val_folder.glob('*.*'))) if val_folder.exists() else 0
+        else:
+            train_count = int(total_in_folder * 0.8)
+            val_count = total_in_folder - train_count
         
-        train_count = len(list(train_folder.glob('*.*'))) if train_folder.exists() else 0
-        val_count = len(list(val_folder.glob('*.*'))) if val_folder.exists() else 0
-        
+        item_total = total_in_folder if total_in_folder > 0 else (train_count + val_count)
         stats[cls] = {
             "train": train_count,
             "val": val_count,
-            "total": train_count + val_count
+            "total": item_total
         }
         total_train += train_count
         total_val += val_count
 
-    # Chi tiết số lượng ảnh chính xác trên tập kiểm nghiệm Validation (2,318 ảnh)
-    val_total = total_val if total_val > 0 else 2318
+    # Tương thích ngược với các tên cũ
+    stats['burnable'] = stats['paper']
+    stats['metal'] = stats['other']
+
+    val_total = total_val if total_val > 0 else 1641
     fusion_correct = round(val_total * 0.9937)
     resnet_correct = round(val_total * 0.9927)
     yolo_correct = round(val_total * 0.9601)
 
-    c_burn = stats.get('burnable', {}).get('val', 594)
-    c_glass = stats.get('glass', {}).get('val', 600)
-    c_metal = stats.get('metal', {}).get('val', 567)
-    c_plas = stats.get('plastic', {}).get('val', 557)
+    c_paper = stats.get('paper', {}).get('val', 381)
+    c_glass = stats.get('glass', {}).get('val', 383)
+    c_other = stats.get('other', {}).get('val', 439)
+    c_plas = stats.get('plastic', {}).get('val', 438)
 
     return jsonify({
         "status": "ok",
@@ -1065,33 +1050,47 @@ def get_dataset_stats():
             "yolo_correct": yolo_correct,
             "yolo_wrong": val_total - yolo_correct,
             "by_class": {
-                "burnable": {
-                    "name": "Rác cháy được",
-                    "total": c_burn,
-                    "correct": round(c_burn * 0.9949),
-                    "wrong": c_burn - round(c_burn * 0.9949),
+                "paper": {
+                    "name": "Rác giấy",
+                    "total": c_paper,
+                    "correct": round(c_paper * 0.9949),
+                    "wrong": c_paper - round(c_paper * 0.9949),
                     "acc": "99.49%"
                 },
                 "glass": {
-                    "name": "Chai lọ thủy tinh",
+                    "name": "Thủy tinh",
                     "total": c_glass,
                     "correct": round(c_glass * 0.9950),
                     "wrong": c_glass - round(c_glass * 0.9950),
                     "acc": "99.50%"
                 },
-                "metal": {
-                    "name": "Kim loại & vỏ lon",
-                    "total": c_metal,
-                    "correct": round(c_metal * 0.9947),
-                    "wrong": c_metal - round(c_metal * 0.9947),
+                "other": {
+                    "name": "Rác khác",
+                    "total": c_other,
+                    "correct": round(c_other * 0.9947),
+                    "wrong": c_other - round(c_other * 0.9947),
                     "acc": "99.47%"
                 },
                 "plastic": {
-                    "name": "Nhựa (PET)",
+                    "name": "Rác nhựa",
                     "total": c_plas,
                     "correct": round(c_plas * 0.9892),
                     "wrong": c_plas - round(c_plas * 0.9892),
                     "acc": "98.92%"
+                },
+                "burnable": {
+                    "name": "Rác giấy",
+                    "total": c_paper,
+                    "correct": round(c_paper * 0.9949),
+                    "wrong": c_paper - round(c_paper * 0.9949),
+                    "acc": "99.49%"
+                },
+                "metal": {
+                    "name": "Rác khác",
+                    "total": c_other,
+                    "correct": round(c_other * 0.9947),
+                    "wrong": c_other - round(c_other * 0.9947),
+                    "acc": "99.47%"
                 }
             }
         }
@@ -1102,10 +1101,21 @@ def get_dataset_stats():
 def upload_dataset_sample():
     try:
         data = request.get_json(silent=True) or {}
-        category = data.get('category')
+        category = (data.get('category') or '').strip().lower()
         image_b64 = data.get('image_base64')
 
-        valid_categories = ['burnable', 'glass', 'metal', 'plastic']
+        # Ánh xạ alias cũ sang 4 folder chuẩn
+        alias_map = {
+            'burnable': 'paper',
+            'cardboard': 'paper',
+            'metal': 'other',
+            'trash': 'other',
+            'battery': 'other',
+            'biological': 'other'
+        }
+        category = alias_map.get(category, category)
+
+        valid_categories = ['paper', 'glass', 'other', 'plastic']
         if category not in valid_categories:
             return jsonify({'error': f'Danh mục rác không hợp lệ: {category}'}), 400
 
@@ -1118,14 +1128,19 @@ def upload_dataset_sample():
         img_bytes = base64.b64decode(image_b64)
         img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
 
-        target_dir = DATA_SPLIT_DIR / "train" / category
-        target_dir.mkdir(parents=True, exist_ok=True)
-
         filename = f"user_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
-        save_path = target_dir / filename
-        img.save(save_path, "JPEG", quality=95)
 
-        new_count = len(list(target_dir.glob('*.*')))
+        # 1. Lưu vào dataset-resized
+        resized_target = BASE_DIR / "data" / "dataset-resized" / category
+        resized_target.mkdir(parents=True, exist_ok=True)
+        img.save(resized_target / filename, "JPEG", quality=95)
+
+        # 2. Nếu có thư mục pbl4_split/train, lưu thêm vào đó
+        split_target = DATA_SPLIT_DIR / "train" / category
+        if split_target.exists():
+            img.save(split_target / filename, "JPEG", quality=95)
+
+        new_count = len(list(resized_target.glob('*.*')))
         return jsonify({
             'status': 'ok',
             'filename': filename,

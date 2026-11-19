@@ -200,7 +200,7 @@
                                             <div class="p-2 bg-card rounded-1 border border-subtle font-mono" id="ultrasonicBanner">
                                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                                     <span class="small text-secondary fw-semibold">
-                                                        <i class="fa-solid fa-satellite-dish me-1"></i> CẢM BIẾN SIÊU ÂM (TRIG D5 / ECHO D27)
+                                                        <i class="fa-solid fa-satellite-dish me-1"></i> CẢM BIẾN SIÊU ÂM
                                                     </span>
                                                     <span class="badge border border-subtle text-secondary" id="ultrasonicLiveBadge">
                                                         <span class="status-dot"></span> <span id="ultrasonicDistanceVal">-- cm</span>
@@ -248,27 +248,27 @@
 
                                             <div class="row g-2 mb-2">
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(1)" id="btnQuickBin1" title="Ngăn 1">
+                                                    <div class="bin-btn" onclick="triggerManualBin(1)" id="btnQuickBin1" title="Ngăn 1: Rác giấy">
                                                         <div class="bin-num font-mono">NGĂN 1</div>
-                                                        <div class="bin-label text-truncate">Cháy được</div>
+                                                        <div class="bin-label text-truncate">Rác giấy</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(2)" id="btnQuickBin2" title="Ngăn 2">
+                                                    <div class="bin-btn" onclick="triggerManualBin(2)" id="btnQuickBin2" title="Ngăn 2: Thủy tinh">
                                                         <div class="bin-num font-mono">NGĂN 2</div>
                                                         <div class="bin-label text-truncate">Thủy tinh</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(3)" id="btnQuickBin3" title="Ngăn 3">
+                                                    <div class="bin-btn" onclick="triggerManualBin(3)" id="btnQuickBin3" title="Ngăn 3: Rác khác">
                                                         <div class="bin-num font-mono">NGĂN 3</div>
-                                                        <div class="bin-label text-truncate">Kim loại</div>
+                                                        <div class="bin-label text-truncate">Rác khác</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="bin-btn" onclick="triggerManualBin(4)" id="btnQuickBin4" title="Ngăn 4">
+                                                    <div class="bin-btn" onclick="triggerManualBin(4)" id="btnQuickBin4" title="Ngăn 4: Rác nhựa">
                                                         <div class="bin-num font-mono">NGĂN 4</div>
-                                                        <div class="bin-label text-truncate">Nhựa PET</div>
+                                                        <div class="bin-label text-truncate">Rác nhựa</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -344,8 +344,8 @@
                                             <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
                                                 <div>
                                                     <span class="category-pill mb-2" id="resCategoryTag">RÁC TÁI CHẾ</span>
-                                                    <h2 class="result-title mb-0" id="resClassTitle">Chai nhựa (PET)</h2>
-                                                    <div class="font-mono text-secondary small" id="resClassEn">PLASTIC BOTTLE</div>
+                                                    <h2 class="result-title mb-0" id="resClassTitle">Rác nhựa</h2>
+                                                    <div class="font-mono text-secondary small" id="resClassEn">PLASTIC</div>
                                                 </div>
                                                 <div class="text-end">
                                                     <div class="font-mono text-muted small">ĐỘ TIN CẬY</div>
@@ -449,14 +449,8 @@
                             <div class="row g-2">
                                 <div class="col-6 col-md-3">
                                     <div class="stat-tile">
-                                        <div class="stat-label">TỔNG ĐÃ PHÂN LOẠI</div>
-                                        <div class="stat-num text-white" id="histStatTotal">0</div>
-                                    </div>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-tile">
-                                        <div class="stat-label">NGĂN 1: CHÁY / HỮU CƠ</div>
-                                        <div class="stat-num text-white" id="histStatBurnable">0</div>
+                                        <div class="stat-label">NGĂN 1: GIẤY</div>
+                                        <div class="stat-num text-white" id="histStatPaper">0</div>
                                     </div>
                                 </div>
                                 <div class="col-6 col-md-3">
@@ -467,8 +461,14 @@
                                 </div>
                                 <div class="col-6 col-md-3">
                                     <div class="stat-tile">
-                                        <div class="stat-label">NGĂN 3 & 4: KIM LOẠI / NHỰA</div>
-                                        <div class="stat-num text-white" id="histStatMetal">0</div>
+                                        <div class="stat-label">NGĂN 3: RÁC KHÁC</div>
+                                        <div class="stat-num text-white" id="histStatOther">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile">
+                                        <div class="stat-label">NGĂN 4: NHỰA PET</div>
+                                        <div class="stat-num text-white" id="histStatPlastic">0</div>
                                     </div>
                                 </div>
                             </div>
@@ -477,10 +477,10 @@
                             <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mt-3 pt-2 border-top border-subtle">
                                 <div class="d-flex flex-wrap gap-1" id="historyFilterGroup">
                                     <button type="button" class="btn btn-xs btn-outline-mono font-mono active" data-filter="all" onclick="filterHistory('all', this)">Tất cả</button>
-                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="burnable" onclick="filterHistory('burnable', this)">Cháy được</button>
+                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="paper" onclick="filterHistory('paper', this)">Rác giấy</button>
                                     <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="glass" onclick="filterHistory('glass', this)">Thủy tinh</button>
-                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="metal" onclick="filterHistory('metal', this)">Kim loại</button>
-                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="plastic" onclick="filterHistory('plastic', this)">Nhựa PET</button>
+                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="other" onclick="filterHistory('other', this)">Rác khác</button>
+                                    <button type="button" class="btn btn-xs btn-outline-mono font-mono" data-filter="plastic" onclick="filterHistory('plastic', this)">Rác nhựa</button>
                                 </div>
                                 <div class="input-group input-group-sm" style="max-width: 250px;">
                                     <span class="input-group-text bg-input border-subtle text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
@@ -632,10 +632,10 @@
                                     <div class="col-6 col-md-3">
                                         <div class="stat-tile text-start p-2">
                                             <div class="d-flex justify-content-between mb-1">
-                                                <span class="fw-bold text-white">Cháy được</span>
-                                                <span id="dsBurnableCount">0 ảnh</span>
+                                                <span class="fw-bold text-white">Rác Giấy</span>
+                                                <span id="dsPaperCount">0 ảnh</span>
                                             </div>
-                                            <div class="text-muted" style="font-size: 0.68rem;">Hữu cơ, giấy, lá cây</div>
+                                            <div class="text-muted" style="font-size: 0.68rem;">Giấy báo, bìa hộp, sách vở</div>
                                         </div>
                                     </div>
                                     <div class="col-6 col-md-3">
@@ -650,16 +650,16 @@
                                     <div class="col-6 col-md-3">
                                         <div class="stat-tile text-start p-2">
                                             <div class="d-flex justify-content-between mb-1">
-                                                <span class="fw-bold text-white">Kim loại</span>
-                                                <span id="dsMetalCount">0 ảnh</span>
+                                                <span class="fw-bold text-white">Rác khác</span>
+                                                <span id="dsOtherCount">0 ảnh</span>
                                             </div>
-                                            <div class="text-muted" style="font-size: 0.68rem;">Vỏ lon, nắp nhôm</div>
+                                            <div class="text-muted" style="font-size: 0.68rem;">Vỏ lon, kim loại, rác tạp</div>
                                         </div>
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <div class="stat-tile text-start p-2">
                                             <div class="d-flex justify-content-between mb-1">
-                                                <span class="fw-bold text-white">Nhựa (PET)</span>
+                                                <span class="fw-bold text-white">Rác nhựa</span>
                                                 <span id="dsPlasticCount">0 ảnh</span>
                                             </div>
                                             <div class="text-muted" style="font-size: 0.68rem;">Chai nước, hộp nhựa</div>
@@ -681,10 +681,10 @@
                                             <div class="mb-3">
                                                 <label class="small text-muted font-mono mb-1">Chọn nhãn loại rác cho ảnh:</label>
                                                 <select class="form-select form-select-sm font-mono" id="uploadDatasetCategory">
-                                                    <option value="burnable">Ngăn 1: Rác cháy được</option>
+                                                    <option value="paper">Ngăn 1: Rác giấy</option>
                                                     <option value="glass">Ngăn 2: Thủy tinh</option>
-                                                    <option value="metal">Ngăn 3: Kim loại</option>
-                                                    <option value="plastic" selected>Ngăn 4: Nhựa PET</option>
+                                                    <option value="other">Ngăn 3: Rác khác</option>
+                                                    <option value="plastic" selected>Ngăn 4: Rác nhựa</option>
                                                 </select>
                                             </div>
 
@@ -692,7 +692,7 @@
                                             <div class="dataset-dropzone mb-2" id="datasetDropzone" onclick="document.getElementById('datasetFileInput').click()">
                                                 <i class="fa-solid fa-cloud-arrow-up fs-2 text-muted mb-2"></i>
                                                 <div class="small fw-semibold text-white">Kéo & thả ảnh vào đây hoặc bấm để chọn</div>
-                                                <div class="text-muted font-mono" style="font-size: 0.72rem;">Hỗ trợ định dạng JPG, PNG (tối đa 10 ảnh/lần)</div>
+                                                <div class="text-muted font-mono" style="font-size: 0.72rem;">Hỗ trợ định dạng JPG, PNG - tối đa 10 ảnh mỗi lần</div>
                                                 <input type="file" id="datasetFileInput" class="d-none" accept="image/*" multiple onchange="handleDatasetFileSelect(this.files)">
                                             </div>
 
@@ -727,7 +727,7 @@
                                                     </select>
                                                 </div>
                                                 <div class="col-4">
-                                                    <label class="small text-muted font-mono mb-1 d-block">Tốc độ học (LR)</label>
+                                                    <label class="small text-muted font-mono mb-1 d-block">Tốc độ học LR</label>
                                                     <select class="form-select form-select-sm font-mono" id="trainLrInput">
                                                         <option value="0.0001" selected>0.0001</option>
                                                         <option value="0.00005">0.00005</option>
@@ -813,7 +813,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                 <div class="clean-card-header d-flex align-items-center justify-content-between">
                                     <span class="clean-card-title"><i class="fa-solid fa-tv text-white"></i> Mô Phỏng Phần Cứng Thực Tế</span>
                                     <button type="button" class="btn btn-outline-mono btn-sm" onclick="simulateRotaryCycle('plastic')">
-                                        <i class="fa-solid fa-play me-1"></i> Chạy thử chu trình (Demo)
+                                        <i class="fa-solid fa-play me-1"></i> Chạy thử chu trình
                                     </button>
                                 </div>
                                 <div class="clean-card-body d-flex flex-column gap-3">
@@ -838,9 +838,9 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                             </div>
                                             <div class="row g-2" id="binVisualGrid">
                                                 <div class="col-3">
-                                                    <div class="hardware-bin-box active" id="binCard1" data-bin="1" onclick="triggerManualBin(1, 'Rác cháy được')">
+                                                    <div class="hardware-bin-box active" id="binCard1" data-bin="1" onclick="triggerManualBin(1, 'Rác giấy')">
                                                         <div class="font-mono text-white fw-bold small">N.1</div>
-                                                        <div class="fw-semibold text-white small text-truncate">Cháy Được</div>
+                                                        <div class="fw-semibold text-white small text-truncate">Rác Giấy</div>
                                                         <div class="text-muted font-mono" style="font-size: 0.68rem;">0°</div>
                                                     </div>
                                                 </div>
@@ -852,16 +852,16 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="hardware-bin-box" id="binCard3" data-bin="3" onclick="triggerManualBin(3, 'Kim loại')">
+                                                    <div class="hardware-bin-box" id="binCard3" data-bin="3" onclick="triggerManualBin(3, 'Rác khác')">
                                                         <div class="font-mono text-white fw-bold small">N.3</div>
-                                                        <div class="fw-semibold text-white small text-truncate">Kim Loại</div>
+                                                        <div class="fw-semibold text-white small text-truncate">Rác Khác</div>
                                                         <div class="text-muted font-mono" style="font-size: 0.68rem;">180°</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-3">
-                                                    <div class="hardware-bin-box" id="binCard4" data-bin="4" onclick="triggerManualBin(4, 'Nhựa PET')">
+                                                    <div class="hardware-bin-box" id="binCard4" data-bin="4" onclick="triggerManualBin(4, 'Rác nhựa')">
                                                         <div class="font-mono text-white fw-bold small">N.4</div>
-                                                        <div class="fw-semibold text-white small text-truncate">Nhựa PET</div>
+                                                        <div class="fw-semibold text-white small text-truncate">Rác Nhựa</div>
                                                         <div class="text-muted font-mono" style="font-size: 0.68rem;">-90°</div>
                                                     </div>
                                                 </div>
@@ -893,23 +893,23 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                         </div>
                                         <div class="d-grid gap-2">
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
-                                                <span class="text-white">Ngăn 1: Rác cháy được</span>
-                                                <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác cháy được')">Xoay tới</button>
+                                                <span class="text-white">Ngăn 1: Rác Giấy</span>
+                                                <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(0, 'Rác Giấy')">Xoay tới</button>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
                                                 <span class="text-white">Ngăn 2: Thủy tinh</span>
                                                 <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(90, 'Thủy tinh')">Xoay tới</button>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
-                                                <span class="text-white">Ngăn 3: Kim loại</span>
+                                                <span class="text-white">Ngăn 3: Rác khác</span>
                                                 <div class="d-flex gap-1">
                                                     <button type="button" class="btn btn-outline-mono btn-xs py-0 px-2 font-mono" onclick="testActuatorCmd('rotate_3_fwd')">Quay đi</button>
                                                     <button type="button" class="btn btn-outline-mono btn-xs py-0 px-2 font-mono" onclick="testActuatorCmd('rotate_3_rev')">Quay về</button>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded-1 border border-subtle small">
-                                                <span class="text-white">Ngăn 4: Nhựa PET</span>
-                                                <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Nhựa PET')">Xoay tới</button>
+                                                <span class="text-white">Ngăn 4: Rác nhựa</span>
+                                                <button type="button" class="btn btn-outline-mono btn-sm py-0 px-2" onclick="rotateToAngle(270, 'Rác nhựa')">Xoay tới</button>
                                             </div>
                                         </div>
                                     </div>
@@ -918,27 +918,36 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                 <div class="col-12 col-xl-6">
                                     <div class="clean-card h-100 p-3">
                                         <div class="fw-semibold text-white mb-2 d-flex align-items-center justify-content-between">
-                                            <span>Nắp Mở Thùng Rác</span>
+                                            <span>Nắp Mở Thùng Rác (Servo 180 G27)</span>
                                             <span class="badge border border-subtle text-secondary font-mono small" id="trapdoorStatusBadge">TRẠNG THÁI: ĐÓNG</span>
                                         </div>
                                         <div class="d-flex gap-2 mb-3">
-                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(true)">
-                                                <i class="fa-solid fa-door-open me-1"></i> Mở nắp
+                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="testLidOpen()">
+                                                <i class="fa-solid fa-door-open me-1"></i> Mở nắp (0°)
                                             </button>
-                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="toggleTrapdoor(false)">
-                                                <i class="fa-solid fa-lock me-1"></i> Đóng nắp
+                                            <button type="button" class="btn btn-outline-mono btn-sm flex-grow-1" onclick="testLidClose()">
+                                                <i class="fa-solid fa-lock me-1"></i> Đóng nắp (10°)
+                                            </button>
+                                            <button type="button" class="btn btn-outline-mono btn-sm" onclick="triggerManualDump()">
+                                                <i class="fa-solid fa-recycle me-1"></i> Hất rác G25
                                             </button>
                                         </div>
 
                                         <!-- Fill Level Sensors -->
-                                        <div class="fw-semibold text-white small mb-2">Cảm biến báo đầy 4 ngăn:</div>
+                                        <div class="fw-semibold text-white small mb-2 d-flex justify-content-between align-items-center">
+                                            <span>Cảm biến báo đầy 4 ngăn:</span>
+                                            <span class="badge bg-danger font-mono small d-none" id="bin1FullHeaderAlert"><i class="fa-solid fa-triangle-exclamation me-1"></i> THÙNG 1 ĐẦY RÁC</span>
+                                        </div>
                                         <div class="d-grid gap-2 font-mono small">
                                             <div>
-                                                <div class="d-flex justify-content-between mb-1">
-                                                    <span>Ngăn 1: Cháy được</span>
-                                                    <span id="fillPctOrganic" class="text-white">35%</span>
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <span>Ngăn 1: Rác giấy <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">HC-SR04 G5/G18</span></span>
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <span id="bin1FullBadge" class="badge bg-danger d-none" style="font-size: 0.65rem;">ĐẦY RÁC (&le;2cm)</span>
+                                                        <span id="fillPctOrganic" class="text-white">-- cm</span>
+                                                    </div>
                                                 </div>
-                                                <div class="clean-progress"><div class="clean-progress-bar" id="fillBarOrganic" style="width: 35%;"></div></div>
+                                                <div class="clean-progress"><div class="clean-progress-bar" id="fillBarOrganic" style="width: 25%;"></div></div>
                                             </div>
                                             <div>
                                                 <div class="d-flex justify-content-between mb-1">
@@ -949,14 +958,14 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                             </div>
                                             <div>
                                                 <div class="d-flex justify-content-between mb-1">
-                                                    <span>Ngăn 3: Kim loại</span>
+                                                    <span>Ngăn 3: Rác khác</span>
                                                     <span id="fillPctHazardous" class="text-white">15%</span>
                                                 </div>
                                                 <div class="clean-progress"><div class="clean-progress-bar" id="fillBarHazardous" style="width: 15%;"></div></div>
                                             </div>
                                             <div>
                                                 <div class="d-flex justify-content-between mb-1">
-                                                    <span>Ngăn 4: Nhựa PET</span>
+                                                    <span>Ngăn 4: Rác nhựa</span>
                                                     <span id="fillPctTrash" class="text-white">45%</span>
                                                 </div>
                                                 <div class="clean-progress"><div class="clean-progress-bar" id="fillBarTrash" style="width: 45%;"></div></div>
@@ -983,7 +992,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                             <div class="clean-card p-3">
                                 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3 border-bottom border-subtle pb-2">
                                     <div>
-                                        <div class="fw-semibold text-white">Hiệu Chuẩn Thời Gian Vận Hành (Bước ±5ms)</div>
+                                        <div class="fw-semibold text-white">Hiệu Chuẩn Thời Gian Vận Hành Bước ±5ms</div>
                                         <div class="text-muted font-mono small">Lưu trực tiếp vào <code>actuator_settings.json</code> & Flash NVS ESP32.</div>
                                     </div>
                                     <button type="button" class="btn btn-white btn-sm" onclick="saveActuatorSettingsFromUi()">
@@ -992,7 +1001,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                 </div>
 
                                 <div class="mb-3">
-                                    <div class="text-secondary font-mono small fw-bold mb-2">1. SERVO 360° XOAY MÂM (GPIO 18)</div>
+                                    <div class="text-secondary font-mono small fw-bold mb-2">1. SERVO 360° XOAY MÂM GPIO 26</div>
                                     <div class="row g-3">
                                         <!-- 90 deg forward -->
                                         <div class="col-12 col-md-3">
@@ -1061,13 +1070,104 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- 4x4 Rotation Matrix Display Table -->
+                                    <div class="mt-3 p-2 border border-subtle rounded-1 bg-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="small font-mono text-secondary fw-semibold">
+                                                <i class="fa-solid fa-table-cells me-1 text-info"></i> MA TRẬN THỜI GIAN QUAY GIỮA 4 NGĂN (4x4 CHUẨN THỰC TẾ)
+                                            </span>
+                                            <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">Tự động tính theo tham số</span>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered text-center font-mono small mb-0 table-dark align-middle">
+                                                <thead>
+                                                    <tr class="text-secondary" style="font-size: 0.72rem;">
+                                                        <th class="text-muted">Từ \ Đến</th>
+                                                        <th>Ngăn 1 (0°)</th>
+                                                        <th>Ngăn 2 (90°)</th>
+                                                        <th>Ngăn 3 (180°)</th>
+                                                        <th>Ngăn 4 (-90°)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody style="font-size: 0.75rem;">
+                                                    <tr>
+                                                        <th class="text-secondary">Ngăn 1</th>
+                                                        <td class="text-muted">0 ms</td>
+                                                        <td class="text-info fw-bold">Thuận 90°: <span class="lbl-rot90">950</span>ms</td>
+                                                        <td class="text-warning fw-bold">Thuận 180°: <span class="lbl-rot180f">1850</span>ms</td>
+                                                        <td class="text-primary fw-bold">Nghịch 90°: <span class="lbl-rot90r">1010</span>ms</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="text-secondary">Ngăn 2</th>
+                                                        <td class="text-primary fw-bold">Nghịch 90°: <span class="lbl-rot90r">1010</span>ms</td>
+                                                        <td class="text-muted">0 ms</td>
+                                                        <td class="text-info fw-bold">Thuận 90°: <span class="lbl-rot90">950</span>ms</td>
+                                                        <td class="text-warning fw-bold">Thuận 180°: <span class="lbl-rot180f">1850</span>ms</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="text-secondary">Ngăn 3</th>
+                                                        <td class="text-danger fw-bold">Nghịch 180°: <span class="lbl-rot180r">1955</span>ms</td>
+                                                        <td class="text-primary fw-bold">Nghịch 90°: <span class="lbl-rot90r">1010</span>ms</td>
+                                                        <td class="text-muted">0 ms</td>
+                                                        <td class="text-info fw-bold">Thuận 90°: <span class="lbl-rot90">950</span>ms</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="text-secondary">Ngăn 4</th>
+                                                        <td class="text-info fw-bold">Thuận 90°: <span class="lbl-rot90">950</span>ms</td>
+                                                        <td class="text-danger fw-bold">Nghịch 180°: <span class="lbl-rot180r">1955</span>ms</td>
+                                                        <td class="text-primary fw-bold">Nghịch 90°: <span class="lbl-rot90r">1010</span>ms</td>
+                                                        <td class="text-muted">0 ms</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Servo 180 Dump Settings -->
                                 <div class="mb-3">
-                                    <div class="text-secondary font-mono small fw-bold mb-2">2. SERVO 180° HẤT RÁC (GPIO 19)</div>
+                                    <div class="text-secondary font-mono small fw-bold mb-2">2. SERVO 180° HẤT RÁC GPIO 25</div>
+                                    
+                                    <!-- Cân chỉnh 2 đầu góc hất rác & đóng nghỉ -->
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-12 col-md-6">
+                                            <div class="p-2 border border-subtle rounded-1 bg-body h-100">
+                                                <div class="d-flex justify-content-between small text-secondary mb-1">
+                                                    <span>Góc nghỉ đóng nắp (Đầu 1)</span>
+                                                    <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">Nghỉ: 0° - 15°</span>
+                                                </div>
+                                                <div class="input-group input-group-sm mb-2">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rest_angle', -1)">-1°</button>
+                                                    <input type="number" id="cfg_dump_rest_angle" class="form-control text-center font-mono fw-bold" value="0" min="0" max="180" step="1">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rest_angle', 1)">+1°</button>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-mono btn-xs w-100 font-mono" onclick="testServoClose()">
+                                                    <i class="fa-solid fa-lock me-1"></i> Test Về Góc Nghỉ
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <div class="p-2 border border-subtle rounded-1 bg-body h-100">
+                                                <div class="d-flex justify-content-between small text-secondary mb-1">
+                                                    <span>Góc mở hất rác (Đầu 2)</span>
+                                                    <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">Mở: 80° - 120°</span>
+                                                </div>
+                                                <div class="input-group input-group-sm mb-2">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_target_angle', -1)">-1°</button>
+                                                    <input type="number" id="cfg_dump_target_angle" class="form-control text-center font-mono fw-bold" value="90" min="0" max="180" step="1">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_target_angle', 1)">+1°</button>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-mono btn-xs w-100 font-mono" onclick="testServoOpen()">
+                                                    <i class="fa-solid fa-door-open me-1"></i> Test Mở Đến Góc Hất
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Thời gian hành trình -->
                                     <div class="row g-3">
-                                        <div class="col-12 col-md-3">
+                                        <div class="col-12 col-md-4">
                                             <label class="small text-muted font-mono mb-1">Thời gian mở nắp</label>
                                             <div class="input-group input-group-sm">
                                                 <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_fwd_time_ms', -5)">-5ms</button>
@@ -1075,7 +1175,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                                 <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_fwd_time_ms', 5)">+5ms</button>
                                             </div>
                                         </div>
-                                        <div class="col-12 col-md-3">
+                                        <div class="col-12 col-md-4">
                                             <label class="small text-muted font-mono mb-1">Thời gian đóng nắp</label>
                                             <div class="input-group input-group-sm">
                                                 <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rev_time_ms', -5)">-5ms</button>
@@ -1083,15 +1183,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                                 <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rev_time_ms', 5)">+5ms</button>
                                             </div>
                                         </div>
-                                        <div class="col-12 col-md-3">
-                                            <label class="small text-muted font-mono mb-1">Góc nghỉ đóng nắp</label>
-                                            <div class="input-group input-group-sm">
-                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rest_angle', -1)">-1°</button>
-                                                <input type="number" id="cfg_dump_rest_angle" class="form-control text-center font-mono" value="0" step="1">
-                                                <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_rest_angle', 1)">+1°</button>
-                                            </div>
-                                        </div>
-                                        <div class="col-12 col-md-3">
+                                        <div class="col-12 col-md-4">
                                             <label class="small text-muted font-mono mb-1">Thời gian chờ rác rơi</label>
                                             <div class="input-group input-group-sm">
                                                 <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('dump_wait_ms', -50)">-50ms</button>
@@ -1100,10 +1192,63 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="d-flex align-items-center justify-content-between p-2 mt-3 bg-body border border-subtle rounded-1">
-                                        <span class="small font-mono text-secondary" id="cfg_dump_inverted_label">Chiều Thuận (0° &rarr; 90° &rarr; 0°)</span>
-                                        <button type="button" class="btn btn-outline-mono btn-sm font-mono" onclick="toggleServoDirectionFromUi()">
-                                            <i class="fa-solid fa-repeat me-1"></i> Đảo Chiều (Phím i)
+
+                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between p-2 mt-3 bg-body border border-subtle rounded-1">
+                                        <span class="small font-mono text-secondary" id="cfg_dump_inverted_label">Chiều Thuận: Nghỉ 0° &rarr; Hất 90° &rarr; 0°</span>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-mono btn-xs font-mono" onclick="testActuatorCmd('dump')">
+                                                <i class="fa-solid fa-play me-1"></i> Test Chu Trình Hất
+                                            </button>
+                                            <button type="button" class="btn btn-outline-mono btn-xs font-mono" onclick="toggleServoDirectionFromUi()">
+                                                <i class="fa-solid fa-repeat me-1"></i> Đảo Chiều Phím i
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Servo 180 Lid Settings (Demo Thùng 1) -->
+                                <div class="mb-3">
+                                    <div class="text-secondary font-mono small fw-bold mb-2">3. SERVO 180° MỞ NẮP THÙNG (DEMO THÙNG 1) GPIO 27</div>
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <div class="p-2 border border-subtle rounded-1 bg-body h-100">
+                                                <div class="d-flex justify-content-between small text-secondary mb-1">
+                                                    <span>Góc đóng nắp (Góc nghỉ)</span>
+                                                    <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">Đóng: 10°</span>
+                                                </div>
+                                                <div class="input-group input-group-sm mb-2">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('lid_rest_angle', -1)">-1°</button>
+                                                    <input type="number" id="cfg_lid_rest_angle" class="form-control text-center font-mono fw-bold" value="10" min="0" max="180" step="1">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('lid_rest_angle', 1)">+1°</button>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-mono btn-xs w-100 font-mono" onclick="testLidClose()">
+                                                    <i class="fa-solid fa-lock me-1"></i> Test Đóng Nắp (10°)
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <div class="p-2 border border-subtle rounded-1 bg-body h-100">
+                                                <div class="d-flex justify-content-between small text-secondary mb-1">
+                                                    <span>Góc mở nắp thùng</span>
+                                                    <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">Mở: 0°</span>
+                                                </div>
+                                                <div class="input-group input-group-sm mb-2">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('lid_open_angle', -5)">-5°</button>
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('lid_open_angle', -1)">-1°</button>
+                                                    <input type="number" id="cfg_lid_open_angle" class="form-control text-center font-mono fw-bold" value="0" min="0" max="180" step="1">
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('lid_open_angle', 1)">+1°</button>
+                                                    <button class="btn btn-outline-mono px-2" type="button" onclick="stepTiming('lid_open_angle', 5)">+5°</button>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-mono btn-xs w-100 font-mono" onclick="testLidOpen()">
+                                                    <i class="fa-solid fa-door-open me-1"></i> Test Mở Nắp (0°)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between p-2 mt-3 bg-body border border-subtle rounded-1">
+                                        <span class="small font-mono text-secondary" id="cfg_lid_inverted_label">Đóng: 10° &rarr; Mở: 0° (Chiều Đảo)</span>
+                                        <button type="button" class="btn btn-outline-mono btn-xs font-mono" onclick="toggleLidDirectionFromUi()">
+                                            <i class="fa-solid fa-repeat me-1"></i> Đảo Chiều Nắp Phím w
                                         </button>
                                     </div>
                                 </div>
@@ -1118,7 +1263,7 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                         <input type="text" id="cfg_esp32_cam_ip" class="form-control form-control-sm font-mono" placeholder="http://172.16.0.100" value="http://172.16.0.100">
                                     </div>
                                     <div class="col-12 col-md-4">
-                                        <label class="small text-muted font-mono">Khoảng cách Auto-Scan (giây)</label>
+                                        <label class="small text-muted font-mono">Khoảng cách Auto-Scan giây</label>
                                         <div class="input-group input-group-sm">
                                             <button class="btn btn-outline-mono px-2" type="button" onclick="stepCamInterval(-1)">-1s</button>
                                             <input type="number" id="cfg_auto_scan_interval_sec" class="form-control text-center font-mono" value="3" min="1" max="30">
@@ -1133,40 +1278,71 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
                                 </div>
                             </div>
 
-                            <!-- Card 3: Cảm Biến Siêu Âm Phát Hiện Rác Tự Động -->
+                            <!-- Card 3: Cảm Biến Siêu Âm HC-SR04 (Demo Thùng 1) -->
                             <div class="clean-card p-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
                                     <div class="fw-semibold text-white">
-                                        <i class="fa-solid fa-satellite-dish text-white me-1"></i> Cảm Biến Siêu Âm (HC-SR04 / D5 - D27)
+                                        <i class="fa-solid fa-satellite-dish text-white me-1"></i> 2 Cảm Biến Siêu Âm HC-SR04 (Demo Thùng 1)
                                     </div>
-                                    <span class="badge border border-subtle text-secondary font-mono" id="cfg_ultrasonic_live_status">
-                                        Khoảng cách: -- cm
-                                    </span>
+                                    <button type="button" class="btn btn-white btn-sm font-mono" onclick="saveUltrasonicSettingsFromUi()">
+                                        <i class="fa-solid fa-floppy-disk me-1"></i> Lưu Cài Đặt Siêu Âm
+                                    </button>
                                 </div>
                                 <div class="text-secondary small font-mono mb-3">
-                                    Cảm biến nối với ESP32 Thường (TRIG: D5, ECHO: D27). Khi có rác đặt gần hơn ngưỡng cài đặt, hệ thống tự động điều khiển ESP32-CAM chụp &amp; phân loại.
+                                    Trang bị 2 cảm biến siêu âm riêng biệt tại Thùng 1: Một cảm biến nhận diện rác đầy và một cảm biến cảm ứng mở nắp tự động.
                                 </div>
-                                <div class="row g-3 align-items-end">
-                                    <div class="col-12 col-md-5">
-                                        <label class="small text-muted font-mono">Ngưỡng khoảng cách phát hiện rác (cm)</label>
-                                        <div class="input-group input-group-sm">
-                                            <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepUltrasonicThreshold(-0.5)">-0.5</button>
-                                            <input type="number" id="cfg_ultrasonic_threshold_cm" class="form-control text-center font-mono" value="6.0" min="2" max="50" step="0.5">
-                                            <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepUltrasonicThreshold(0.5)">+0.5</button>
+                                <div class="row g-3">
+                                    <!-- Sensor 1: Full detection -->
+                                    <div class="col-12 col-md-6">
+                                        <div class="p-3 border border-subtle rounded-1 bg-body h-100">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="small font-mono fw-bold text-white">1. Cảm biến báo đầy Thùng 1</span>
+                                                <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">TRIG G5 | ECHO G18</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span class="text-secondary small font-mono">Trạng thái đo:</span>
+                                                <span class="badge border border-subtle text-secondary font-mono" id="cfg_bin1_full_live_status">
+                                                    Khoảng cách: -- cm
+                                                </span>
+                                            </div>
+                                            <label class="small text-muted font-mono mb-1">Ngưỡng báo đầy (mặc định 2.0 cm)</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepThreshold('bin1_full_threshold_cm', -0.5)">-0.5</button>
+                                                <input type="number" id="cfg_bin1_full_threshold_cm" class="form-control text-center font-mono fw-bold" value="2.0" min="0.5" max="50" step="0.5">
+                                                <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepThreshold('bin1_full_threshold_cm', 0.5)">+0.5</button>
+                                            </div>
+                                            <div class="small text-muted font-mono" style="font-size: 0.7rem;">
+                                                Khi khoảng cách &le; ngưỡng: Hiển thị cảnh báo "THÙNG 1 ĐẦY RÁC" trên Web.
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="col-12 col-md-4">
-                                        <div class="form-check form-switch pt-3">
-                                            <input class="form-check-input" type="checkbox" id="cfg_ultrasonic_auto_enabled" checked>
-                                            <label class="form-check-label small font-mono text-secondary" for="cfg_ultrasonic_auto_enabled">
-                                                Kích hoạt tự động chụp
-                                            </label>
+
+                                    <!-- Sensor 2: Proximity lid trigger -->
+                                    <div class="col-12 col-md-6">
+                                        <div class="p-3 border border-subtle rounded-1 bg-body h-100">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="small font-mono fw-bold text-white">2. Cảm biến cảm ứng mở nắp Thùng 1</span>
+                                                <span class="badge border border-subtle text-muted font-mono" style="font-size: 0.65rem;">TRIG G21 | ECHO G22</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span class="text-secondary small font-mono">Trạng thái đo:</span>
+                                                <span class="badge border border-subtle text-secondary font-mono" id="cfg_lid_sensor_live_status">
+                                                    Khoảng cách: -- cm
+                                                </span>
+                                            </div>
+                                            <label class="small text-muted font-mono mb-1">Ngưỡng mở nắp (mặc định 2.0 cm)</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepThreshold('lid_sensor_threshold_cm', -0.5)">-0.5</button>
+                                                <input type="number" id="cfg_lid_sensor_threshold_cm" class="form-control text-center font-mono fw-bold" value="2.0" min="0.5" max="50" step="0.5">
+                                                <button class="btn btn-outline-mono px-2 font-mono" type="button" onclick="stepThreshold('lid_sensor_threshold_cm', 0.5)">+0.5</button>
+                                            </div>
+                                            <div class="form-check form-switch pt-1">
+                                                <input class="form-check-input" type="checkbox" id="cfg_lid_auto_enabled" checked>
+                                                <label class="form-check-label small font-mono text-secondary" for="cfg_lid_auto_enabled">
+                                                    Tự động mở nắp khi phát hiện rác (&le; 2cm)
+                                                </label>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="col-12 col-md-3">
-                                        <button type="button" class="btn btn-white btn-sm w-100 font-mono" onclick="saveUltrasonicSettingsFromUi()">
-                                            Lưu Cài Đặt Siêu Âm
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -1183,6 +1359,6 @@ Bấm [Bắt đầu] để khởi chạy tiến trình huấn luyện.
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Main Controller JS -->
-    <script src="/static/js/main.js?v=22.0"></script>
+    <script src="/static/js/main.js?v=28.0"></script>
 </body>
 </html>

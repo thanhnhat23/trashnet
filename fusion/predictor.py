@@ -7,42 +7,26 @@ from torchvision import models, transforms
 from ultralytics import YOLO
 from PIL import Image
 
-
-# ============================================================
-# PATH
-# ============================================================
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 RESNET_MODEL_PATH = BASE_DIR / "data" / "trashnet_resnet18_best.pth"
 CLASSES_PATH = BASE_DIR / "data" / "classes.json"
 YOLO_MODEL_PATH = BASE_DIR / "models" / "yolo11n_trashnet_best.pt"
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# ============================================================
-# DEVICE
-# ============================================================
+def load_classes():
+    global class_to_idx, idx_to_class
+    if CLASSES_PATH.exists():
+        with open(CLASSES_PATH, "r", encoding="utf-8") as f:
+            class_to_idx = json.load(f)
+    else:
+        class_to_idx = {"paper": 0, "glass": 1, "other": 2, "plastic": 3}
+    idx_to_class = {int(v): k for k, v in class_to_idx.items()}
 
-device = torch.device(
-    "cuda:0" if torch.cuda.is_available() else "cpu"
-)
-
-
-# ============================================================
-# CLASSES
-# ============================================================
-
-with open(CLASSES_PATH, "r", encoding="utf-8") as f:
-    class_to_idx = json.load(f)
-
-idx_to_class = {
-    int(v): k for k, v in class_to_idx.items()
-}
-
-
-# ============================================================
-# IMAGE TRANSFORM - SAME AS RESNET TRAINING
-# ============================================================
+class_to_idx = {}
+idx_to_class = {}
+load_classes()
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -53,181 +37,65 @@ transform = transforms.Compose([
     )
 ])
 
-
-# ============================================================
-# LOAD RESNET18
-# ============================================================
-
 def load_resnet():
     model = models.resnet18()
-
-    model.fc = nn.Linear(
-        model.fc.in_features,
-        len(idx_to_class)
-    )
-
-    state_dict = torch.load(
-        RESNET_MODEL_PATH,
-        map_location=device
-    )
-
+    model.fc = nn.Linear(model.fc.in_features, len(idx_to_class))
+    state_dict = torch.load(RESNET_MODEL_PATH, map_location=device)
     model.load_state_dict(state_dict)
-
     model.to(device)
     model.eval()
-
     return model
-
-
-# ============================================================
-# LOAD YOLO11n-CLS
-# ============================================================
 
 def load_yolo():
-    model = YOLO(str(YOLO_MODEL_PATH))
-    return model
+    return YOLO(str(YOLO_MODEL_PATH))
 
-
-# ============================================================
-# LOAD BOTH MODELS
-# ============================================================
-
-print("=" * 60)
-print("Loading AI models...")
-print("=" * 60)
-
+print(f"[AI] Khoi tao model: ResNet18 ({device}) + YOLO11n ({YOLO_MODEL_PATH.name})")
 resnet_model = load_resnet()
 yolo_model = load_yolo()
-
-print(f"ResNet18 loaded on: {device}")
-print(f"YOLO11n-cls loaded from: {YOLO_MODEL_PATH}")
-
-print("=" * 60)
-
 
 def reload_models():
     """Tải lại trọng số mới nhất của ResNet18 và YOLO11n sau khi train."""
     global resnet_model, yolo_model
     try:
+        load_classes()
         resnet_model = load_resnet()
         yolo_model = load_yolo()
-        print("Reloaded latest AI model weights successfully!")
+        print("[AI] Da reload model va class mapping moi nhat thanh cong!")
         return True
     except Exception as e:
-        print(f"Error reloading models: {e}")
+        print(f"[AI] Loi reload models: {e}")
         return False
-
-
-
-# ============================================================
-# SOFT VOTING WEIGHTS
-# ============================================================
 
 RESNET_WEIGHT = 0.70
 YOLO_WEIGHT = 0.30
 
-
-# ============================================================
-# PREDICT RESNET
-# ============================================================
-
 def predict_resnet(image):
-    """
-    Return probability vector of ResNet18.
-    """
-
     image = image.convert("RGB")
-
-    tensor = transform(image)
-    tensor = tensor.unsqueeze(0)
-    tensor = tensor.to(device)
-
+    tensor = transform(image).unsqueeze(0).to(device)
     with torch.no_grad():
         outputs = resnet_model(tensor)
         probs = torch.softmax(outputs, dim=1)[0]
-
     return probs.cpu()
 
-
-# ============================================================
-# PREDICT YOLO
-# ============================================================
-
 def predict_yolo(image):
-    """
-    Return probability vector of YOLO11n-cls.
-    """
-
-    results = yolo_model.predict(
-        source=image,
-        imgsz=224,
-        verbose=False
-    )
-
-    if not results:
-        raise RuntimeError("YOLO không trả về kết quả.")
-
-    result = results[0]
-
-    if result.probs is None:
-        raise RuntimeError(
-            "YOLO model không trả về classification probabilities."
-        )
-
-    # YOLO probability vector
-    yolo_probs = result.probs.data.cpu()
-
-    return yolo_probs
-
-
-# ============================================================
-# SOFT VOTING & INDIVIDUAL MODEL PREDICTION
-# ============================================================
+    results = yolo_model.predict(source=image, imgsz=224, verbose=False)
+    if not results or results[0].probs is None:
+        raise RuntimeError("YOLO model khong tra ve classification probabilities.")
+    return results[0].probs.data.cpu()
 
 def predict(image, model_type="fusion"):
-    """
-    Predict using:
-        - "fusion": Final = 0.7 * ResNet + 0.3 * YOLO (Late Fusion Soft Voting)
-        - "resnet": ResNet18 probabilities only
-        - "yolo": YOLO11n-cls probabilities only
-
-    Return final classification result with active model and comparison details.
-    """
     model_type = (model_type or "fusion").lower().strip()
     if model_type not in ("fusion", "resnet", "yolo"):
         model_type = "fusion"
 
-    # --------------------------------------------------------
-    # 1. ResNet probabilities
-    # --------------------------------------------------------
     resnet_probs = predict_resnet(image)
-
-    # --------------------------------------------------------
-    # 2. YOLO probabilities
-    # --------------------------------------------------------
     yolo_probs = predict_yolo(image)
 
-    # --------------------------------------------------------
-    # 3. Safety check
-    # --------------------------------------------------------
     if len(resnet_probs) != len(yolo_probs):
-        raise RuntimeError(
-            f"Số class không giống nhau: "
-            f"ResNet={len(resnet_probs)}, "
-            f"YOLO={len(yolo_probs)}"
-        )
+        raise RuntimeError(f"So class khong khop: ResNet={len(resnet_probs)}, YOLO={len(yolo_probs)}")
 
-    # --------------------------------------------------------
-    # 4. Soft Voting
-    # --------------------------------------------------------
-    fusion_probs = (
-        RESNET_WEIGHT * resnet_probs
-        + YOLO_WEIGHT * yolo_probs
-    )
+    fusion_probs = RESNET_WEIGHT * resnet_probs + YOLO_WEIGHT * yolo_probs
 
-    # --------------------------------------------------------
-    # 5. Select active probabilities based on model_type
-    # --------------------------------------------------------
     if model_type == "resnet":
         active_probs = resnet_probs
     elif model_type == "yolo":
@@ -235,66 +103,31 @@ def predict(image, model_type="fusion"):
     else:
         active_probs = fusion_probs
 
-    # --------------------------------------------------------
-    # 6. Find final class
-    # --------------------------------------------------------
-    sorted_probs, indices = torch.sort(
-        active_probs,
-        descending=True
-    )
-
+    sorted_probs, indices = torch.sort(active_probs, descending=True)
     top_idx = indices[0].item()
     top_class = idx_to_class[top_idx]
     top_conf = sorted_probs[0].item()
 
-    # --------------------------------------------------------
-    # 7. All predictions for active model
-    # --------------------------------------------------------
     all_predictions = []
-
     for prob, idx in zip(sorted_probs, indices):
         class_id = idx.item()
-        class_name = idx_to_class[class_id]
-
         all_predictions.append({
-            "class": class_name,
-            "confidence": round(
-                prob.item() * 100,
-                2
-            )
+            "class": idx_to_class[class_id],
+            "confidence": round(prob.item() * 100, 2)
         })
 
-    # --------------------------------------------------------
-    # 8. Return result
-    # --------------------------------------------------------
+    resnet_pred = idx_to_class[torch.argmax(resnet_probs).item()]
+    yolo_pred = idx_to_class[torch.argmax(yolo_probs).item()]
+
     return {
         "active_model": model_type,
         "class": top_class,
-        "confidence": round(
-            top_conf * 100,
-            2
-        ),
+        "confidence": round(top_conf * 100, 2),
         "all_predictions": all_predictions,
-
-        # Debug & comparison information
-        "resnet_prediction": idx_to_class[
-            torch.argmax(resnet_probs).item()
-        ],
-
-        "resnet_confidence": round(
-            torch.max(resnet_probs).item() * 100,
-            2
-        ),
-
-        "yolo_prediction": idx_to_class[
-            torch.argmax(yolo_probs).item()
-        ],
-
-        "yolo_confidence": round(
-            torch.max(yolo_probs).item() * 100,
-            2
-        ),
-
+        "resnet_prediction": resnet_pred,
+        "resnet_confidence": round(torch.max(resnet_probs).item() * 100, 2),
+        "yolo_prediction": yolo_pred,
+        "yolo_confidence": round(torch.max(yolo_probs).item() * 100, 2),
         "resnet_weight": RESNET_WEIGHT,
         "yolo_weight": YOLO_WEIGHT
     }
