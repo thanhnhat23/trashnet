@@ -58,4 +58,31 @@ sdkconfig.old
 **/.clangd/
 .cache/
 **/.cache/
-.idea/
+.idea/
+
+# TrashNet runtime and ML artifacts
+_legacy/
+server/var/
+server/models/*.pt
+server/models/*.tflite
+ml/data/
+ml/runs/
+mobile/build/
+mobile/.dart_tool/
+mobile/android/key.properties
+*.jks
+*.keystore
+node_modules/
+.pytest_cache/
+
+firmware/*/build/
+firmware/*/sdkconfig
+firmware/*/sdkconfig.old
+firmware/*/dependencies.lock
+firmware/*/managed_components/
+
+# Python virtualenvs
+.venv/
+**/.venv/
+venv/
+**/venv/

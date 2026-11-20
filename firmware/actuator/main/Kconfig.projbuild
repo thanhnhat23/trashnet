@@ -1,0 +1,5 @@
+menu "TrashNet actuator"
+    config TN_DEBUG_CONSOLE
+        bool "Enable serial debug console"
+        default n
+endmenu

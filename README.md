@@ -1,171 +1,86 @@
-# TrashNet: AI-Powered Smart Waste Classification & Web App
+<div align="center">
 
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org)
-[![Flask](https://img.shields.io/badge/Flask-Web%20UI-black.svg)](https://flask.palletsprojects.com/)
-[![Accuracy](https://img.shields.io/badge/Val%20Accuracy-96.25%25-brightgreen.svg)]()
-[![Classes](https://img.shields.io/badge/Classes-8%20Categories-blue.svg)]()
+# ♻️ TrashNet
 
-TrashNet is an intelligent deep learning system and web application designed to automatically classify household and recyclable waste into proper disposal categories. Originally based on [Gary Thung & Mindy Yang's Stanford CS229 Project](https://cs229.stanford.edu/proj2016/report/ThungYang-ClassificationOfTrashForRecyclabilityStatus-report.pdf), this repository has been modernized to PyTorch with an optimized ResNet-18 pipeline achieving **96.25% validation accuracy** across **8 waste categories**, along with a responsive modern Web UI for live webcam and image classification.
+**Smart waste sorter — ESP32-CAM sees it, YOLO names it, the tray drops it in the right bin.**
 
----
-
-## ✨ Features
-
-- 🧠 **High-Accuracy PyTorch Pipeline**: Transfer learning using ResNet-18 fine-tuned with AdamW optimizer, Cosine Annealing learning rate schedule, data augmentation (RandomResizedCrop, Flip, Rotation, ColorJitter), and Label Smoothing.
-- ♻️ **Expanded 8 Waste Categories**:
-  1. 🔋 **Battery (Pin & Ắc quy)** - Hazardous waste / Red bin
-  2. 🍎 **Biological (Rác hữu cơ)** - Organic waste / Green bin
-  3. 📦 **Cardboard (Bìa carton)** - Recyclable / Blue bin
-  4. 🥛 **Glass (Thủy tinh & Chai lọ)** - Recyclable / Blue bin
-  5. 🥫 **Metal (Kim loại & Vỏ lon)** - Recyclable / Blue bin
-  6. 📄 **Paper (Giấy vụn & Sách báo)** - Recyclable / Blue bin
-  7. 🧴 **Plastic (Nhựa & Chai nhựa)** - Recyclable / Yellow-Blue bin
-  8. 🗑️ **Trash (Rác vô cơ khác)** - Non-recyclable landfill / Gray bin
-- 🌐 **Interactive Web Interface**:
-  - Drag-and-drop or browse image upload
-  - Real-time webcam capture & instant AI inference
-  - Environmental guidance with recommended trash bin colors and recycling tips (bilingual Vietnamese / English)
-  - Detailed probability breakdown bar chart for all 8 categories
-  - Glassmorphic dark/light responsive layout
+</div>
 
 ---
 
-## 🚀 Quick Start: Web Application
+## How it works
 
-### 1. Install Dependencies
+```
+ESP32-CAM ──stream──▶ Server (FastAPI + YOLO) ◀──SSE──▶ Web UI / Flutter app
+                              │
+                              └──job──▶ ESP32 Actuator ─▶ tray · dump arm · lid · 2× ultrasonic
+```
 
-Make sure you have Python 3.8+ installed:
+1. An item lands on the tray; the camera frame goes to the server.
+2. YOLO detects and classifies it: **Paper · Glass · Other · Plastic**.
+3. The actuator rotates to the bin, dumps, and returns the opposite way so cables never wind.
+
+## Features
+
+- 🎯 **YOLO detection** with per-bin scores, so you can see when the model hesitates
+- ⚡ **Instant results** — shown right after inference, before the tray finishes moving
+- 🤍 **White-on-white** handling via empty-tray reference and a low-threshold re-check
+- 🗑️ **Bin-full detection** and hands-free lid on bin 1 (ultrasonic sensors)
+- 📡 **Zero-config discovery** — mDNS, UDP beacon and heartbeat
+- 📱 **Flutter app** — via the server, or standalone with on-device YOLO
+
+## Quick start
+
+```bat
+run_server.bat                    :: http://localhost:8000
+run_fake_devices.bat              :: optional: simulated hardware
+firmware\flash.bat cam COM5
+firmware\flash.bat actuator COM7
+ml\train_detect.bat <bbox_dataset> [empty_tray_photos]
+```
+
+First boot: join the `TrashNet-CAM-XXXX` / `TrashNet-ACT-XXXX` Wi-Fi and `POST http://192.168.4.1/wifi` with `{"ssid":"…","pass":"…"}`. Devices then show up automatically.
+
+## Hardware
+
+| Part | Pin | Note |
+|---|---|---|
+| MG996R tray servo (360°) | GPIO 26 | Separate 5–6 V ≥ 3 A supply, common GND |
+| MG995 dump servo | GPIO 25 | 0–180° |
+| Lid servo (bin 1) | GPIO 27 | |
+| Ultrasonic — bin full | TRIG 19 / ECHO 23 | Full at ≤ 3 cm |
+| Ultrasonic — lid | TRIG 21 / ECHO 22 | Opens at ≤ 3 cm |
+
+```
+          Bin 4 (180°)
+               │
+Bin 3 (−90°) ──●── Bin 2 (+90°)
+               │
+          Bin 1 (0°, front)
+```
+
+## Project layout
+
+```
+server/     FastAPI + web UI (vanilla ES modules, no build step)
+mobile/     Flutter app
+firmware/   cam/ · actuator/ · tn_common/  (ESP-IDF)
+ml/         dataset, training, calibration
+shared/     labels, design tokens, device API contract
+```
+
+Device API: [`shared/device-api.md`](shared/device-api.md)
+
+## Tests
 
 ```bash
-pip install torch torchvision pillow flask
+cd server && python -m pytest tests -q
+python -m pytest ml/tests -q
+sh firmware/actuator/test/run_host_tests.sh
 ```
 
-*(CUDA-enabled GPU is automatically used if available, otherwise runs smoothly on CPU).*
+## License
 
-### 2. Launch the Web Server
+Released under the [MIT License](LICENSE). Copyright (c) 2017 Gary Thung.
 
-From the repository root:
-
-```bash
-python app.py
-```
-
-### 3. Open in Browser
-
-Visit **`http://127.0.0.1:5000`** in your browser to start classifying waste images or streaming from your webcam!
-
----
-
-## 🛠️ CLI Usage & Model Training
-
-### 1. Data Structure
-
-Images are placed in `data/dataset-resized/` organized by class folders:
-
-```text
-data/dataset-resized/
-  ├── battery/
-  ├── biological/
-  ├── cardboard/
-  ├── glass/
-  ├── metal/
-  ├── paper/
-  ├── plastic/
-  └── trash/
-```
-
-### 2. Split Dataset
-
-To regenerate the 80/20 train/validation splits:
-
-```bash
-python data/split_data.py
-```
-
-This creates:
-- `data/one-indexed-files-notrash_train.txt`
-- `data/one-indexed-files-notrash_val.txt`
-- `data/classes.json`
-
-### 3. Train the Model
-
-To train or fine-tune ResNet-18:
-
-```bash
-python data/train.py
-```
-
-Key training optimizations configured in `train.py`:
-- **Optimizer**: AdamW (`lr=1e-4`, `weight_decay=1e-3`)
-- **Scheduler**: `CosineAnnealingLR` (smooth decay down to $10^{-6}$)
-- **Criterion**: Cross-Entropy with `label_smoothing=0.05`
-- **Data Augmentation**: `RandomResizedCrop(224)`, `RandomHorizontalFlip`, `RandomRotation(15)`, `ColorJitter`
-- Checkpoints are saved to `data/trashnet_resnet18_best.pth`.
-
-### 4. Command-Line Inference
-
-To predict the class of a single image via CLI:
-
-```bash
-python data/predict.py
-```
-
-Or configure the target file in `predict.py`:
-```python
-test_img = r"path/to/your/image.jpg"
-```
-
-Output:
-```text
-File: sample.jpg
-Result: PLASTIC (Confidence: 96.42%)
-```
-
----
-
-## 📊 Dataset & Original Paper
-
-- **Paper**: [Thung & Yang - Classification of Trash for Recyclability Status (Stanford CS 229)](https://cs229.stanford.edu/proj2016/report/ThungYang-ClassificationOfTrashForRecyclabilityStatus-report.pdf)
-- **HuggingFace Dataset**: [garythung/trashnet](https://huggingface.co/datasets/garythung/trashnet)
-- Original 6-class dataset photos were captured on white posterboard backgrounds under controlled lighting with Apple iPhone devices and resized to 512x384.
-
----
-
-## 📜 Legacy Torch / Lua Codebase
-
-The root directory retains the original Torch7 Lua implementation for historical reference and research reproduction:
-
-### Setup (Lua/Torch)
-```bash
-luarocks install torch
-luarocks install nn
-luarocks install optim
-luarocks install image
-luarocks install gnuplot
-# For CUDA acceleration:
-luarocks install cutorch
-luarocks install cunn
-```
-
-### Running Legacy Scripts
-- `train.lua` - Train Torch7 CNN models
-- `test.lua` - Evaluate accuracy on test splits
-- `plot.lua` - Visualize training history of legacy `.t7` checkpoints
-
----
-
-## 🤝 Contributing
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feat/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feat/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📝 License & Acknowledgments
-
-- Distributed under the MIT License. See `LICENSE` for more information.
-- Original authors: **Gary Thung** and **Mindy Yang** (Stanford CS 229).
-- Torch weight initialization module provided by [@e-lab](http://github.com/e-lab).
+Based on [garythung/trashnet](https://github.com/garythung/trashnet). Third-party components keep their own licenses: [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (AGPL-3.0), ESP-IDF (Apache-2.0), Flutter (BSD-3-Clause).

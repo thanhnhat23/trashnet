@@ -1,0 +1,4 @@
+{
+  "_help": "Map each class name used in the team's labels to one of: paper, glass, other, plastic. Names that start with a known prefix (paper, cardboard, glass, plastic, metal, battery, biological, trash) are mapped automatically.",
+  "example_bottle": "plastic"
+}

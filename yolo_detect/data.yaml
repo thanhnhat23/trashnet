@@ -1,6 +1,0 @@
-path: /kaggle/input/datasets/nguynthnghaqn20p0623/waste-yolo/WASTE.v1i.yolov11
-train: train/images
-val: valid/images
-test: test/images
-nc: 7
-names: ['Battery','Bio','Glass','Mask','Metal','Paper','Plastic']

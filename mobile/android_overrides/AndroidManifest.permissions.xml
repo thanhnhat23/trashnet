@@ -1,0 +1,6 @@
+<!-- Merge into android/app/src/main/AndroidManifest.xml (inside <manifest>, before <application>) -->
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+<uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+<!-- and on <application>: android:usesCleartextTraffic="true"  (ESP32 devices speak plain HTTP on the LAN) -->

@@ -1,0 +1,21 @@
+name: trashnet
+description: TrashNet mobile app - same screens as the web UI, server or standalone mode.
+publish_to: none
+version: 2.0.0+1
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  shared_preferences: ^2.2.0
+  image: ^4.2.0
+  ultralytics_yolo: ^0.1.0   # AGPL-3.0: keep the project open-source or buy an Ultralytics licence
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/
