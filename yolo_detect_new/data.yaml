@@ -1,0 +1,11 @@
+path: /kaggle/working/al_work/round2/dataset
+train: train/images
+val: val/images
+names:
+  0: Battery
+  1: Bio
+  2: Glass
+  3: Mask
+  4: Metal
+  5: Paper
+  6: Plastic
